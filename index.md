@@ -21,7 +21,7 @@ This site documents the computational workflow accompanying Blanc et al. (2025),
 - **H** — the proportion of genetic variance in a GWAS panel explained by an external ancestry gradient (uncorrected susceptibility)
 - **H′** — the residual susceptibility remaining after correction via Principal Component Analysis (PCA)
 
-Applying this framework to the UK Biobank, we find that robust PCA correction in diverse cohorts reduces residual susceptibility to levels comparable to — or lower than — those achieved by restricting analysis to homogeneous subsets, challenging the assumption that sample homogeneity is the safest study design.
+Applying this framework to the UK Biobank, we find that robust PCA correction in diverse cohorts reduces residual susceptibility to levels comparable to — or lower than — those achieved by restricting analysis to homogeneous subsets. We then perform polygenic score association tests for 17 phenotypes to demonstrate the practical utility of our diagnostic, recovering well-known and novel signal divergence. 
 
 ---
 
@@ -35,11 +35,13 @@ The analysis is implemented as a Snakemake workflow. The pages below document ea
 | [1. Genotype Contrasts](docs/01-genotype-contrasts.md) | Computing allele frequency contrasts (r̂) |
 | [2. Uncorrected Susceptibility](docs/02-uncorrected-susceptibility.md) | Estimating H and the target axis f |
 | [3. PCA Correction](docs/03-pca-correction.md) | Common and rare variant principal components |
-| [4. Residual Susceptibility](docs/04-residual-susceptibility.md) | Estimating H′ and PCA efficacy V_K |
+| [4. Residual Susceptibility](docs/04-residual-susceptibility.md) | Estimating H′ and PCA efficacy $V_K$ |
 | [5. GWAS](docs/05-gwas.md) | Running GWAS with regenie |
 | [6. PGS Association Tests](docs/06-pgs-association-tests.md) | Clumping, thresholding, and the q̂ statistic |
 
 ---
+
+The original Snakefiles used for the analysis on the UChicago Center for Research Informatics [High Performance Computing Cluster](https://cri.uchicago.edu/hpc/) are located in [snakefiles_raw](snakefiles_raw)  
 
 ## Citation
 
