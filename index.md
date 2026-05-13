@@ -32,12 +32,12 @@ The analysis is implemented as a Snakemake workflow. The pages below document ea
 | Step | Description |
 |------|-------------|
 | [Datasets](docs/07-datasets.md) | HGDP1kGP, UK Biobank panels, and prediction sets |
-| [1. Genotype Contrasts](docs/01-genotype-contrasts.md) | Computing allele frequency contrasts (r̂) |
+| [1. Genotype Contrasts](docs/01-genotype-contrasts.md) | Computing allele frequency contrasts ($\hat{r}$) |
 | [2. Uncorrected Susceptibility](docs/02-uncorrected-susceptibility.md) | Estimating H and the target axis f |
 | [3. PCA Correction](docs/03-pca-correction.md) | Common and rare variant principal components |
 | [4. Residual Susceptibility](docs/04-residual-susceptibility.md) | Estimating H′ and PCA efficacy $V_K$ |
 | [5. GWAS](docs/05-gwas.md) | Running GWAS with regenie |
-| [6. PGS Association Tests](docs/06-pgs-association-tests.md) | Clumping, thresholding, and the q̂ statistic |
+| [6. PGS Association Tests](docs/06-pgs-association-tests.md) | Clumping, thresholding, and the $\hat{q}$ statistic |
 
 ---
 
