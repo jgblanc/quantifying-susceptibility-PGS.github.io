@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Home
+title: Quantifying the Susceptibility of Polygenic Scores to Ancestry Stratification
 ---
 
 # Quantifying the Susceptibility of Polygenic Scores to Ancestry Stratification
