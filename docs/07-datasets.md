@@ -38,7 +38,7 @@ dfFilter <- df %>% dplyr::select("project_meta.project_subpop", "latitude", "lon
 colnames(dfFilter)[1] <- "IID"
 ```
 
-![Map of HGDP1kGP samples colored by population](assets/images/HGDPMaps.png)
+![Map of HGDP1kGP samples colored by population](../assets/images/HGDPMaps.png)
 
 ---
 
