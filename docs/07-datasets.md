@@ -23,9 +23,111 @@ We used high-coverage whole genome sequencing data from the harmonized Human Gen
 
 We constructed three sets of genotype contrasts from this dataset:
 
-- **Pairwise continental contrasts** — all $\binom{5}{2} = 10$ pairwise combinations of the five ancestry groups above
-- **Continuous geographic gradients** — latitude and longitude within Eurasia, latitude and longitude within non-Finnish Europe, and Sardinia vs. mainland Europe
+- **Continuous geographic gradients in Eurasia** — latitude and longitude within Eurasia
+- **Continuous geographic gradients in Europe** — latitude and longitude within non-Finnish Europe
 - **Sardinia vs. mainland Europe** — a contrast of particular interest given prior work on height PGS divergence
+- **Pairwise continental contrasts** — all $\binom{5}{2} = 10$ pairwise combinations of the five ancestry groups above
+
+```r
+# Read in metadata
+df <- fread("../data/HGDP1KG/gnomad_meta_updated.tsv", sep = "\t")
+
+# Select relevant columns
+dfFilter <- df %>% dplyr::select("project_meta.project_subpop", "latitude", "longitude",
+                                  "population", "region", "project_meta.project_pop")
+colnames(dfFilter)[1] <- "IID"
+```
+
+![Map of HGDP1kGP samples colored by population](assets/images/HGDPMaps.png)
+
+---
+
+### 1. Eurasia (N = 2,224)
+
+We selected individuals from four broad Eurasian ancestry groups to test for polygenic selection along latitude and longitude, following [Berg et al.](https://elifesciences.org/articles/39725). CEU samples were excluded because their recorded coordinates correspond to the sample collection site in Utah rather than their ancestral geography.
+
+| Population | Code | Sample Size |
+|------------|------|-------------|
+| East Asia | eas | 825 |
+| Finland | fin | 99 |
+| Non-Finnish Europe | nfe | 510 |
+| South Asia | sas | 790 |
+
+```r
+# Select Eurasian samples, removing CEU
+dfEurAsia <- dfFilter %>%
+  filter(project_meta.project_pop %in% c("fin", "nfe", "eas", "sas")) %>%
+  filter(population != "CEU")
+colnames(dfEurAsia) <- c("IID", "pop", "subpop", "lat", "long")
+dfEurAsia <- dfEurAsia %>% mutate(FID = 0) %>% select(FID, everything())
+
+fwrite(dfEurAsia, "../data/HGDP1KG/ids/test_ids/eurasia.txt", sep = "\t")
+```
+
+---
+
+### 2. Non-Finnish Europe (N = 510)
+
+We selected only non-Finnish European individuals to test for polygenic selection along latitude and longitude within Europe, again following [Berg et al.](https://elifesciences.org/articles/39725). CEU samples were again excluded.
+
+| Population | Code | Sample Size |
+|------------|------|-------------|
+| Non-Finnish Europe | nfe | 510 |
+
+```r
+# Select non-Finnish European samples, removing CEU
+dfEur <- dfFilter %>%
+  filter(project_meta.project_pop %in% c("nfe")) %>%
+  filter(population != "CEU")
+dfEur <- dfEur %>% dplyr::select("IID", "project_meta.project_pop", "population", "latitude", "longitude")
+colnames(dfEur) <- c("IID", "pop", "subpop", "lat", "long")
+dfEur <- dfEur %>% mutate(FID = 0) %>% select(FID, everything())
+```
+
+---
+
+### 3. Sardinia vs. Mainland Europe (N = 689)
+
+Following [Chen et al.](https://www.sciencedirect.com/science/article/pii/S0002929720301610), we tested for polygenic selection acting on height in Sardinia compared to the rest of Europe. Here CEU samples are included, and individuals are coded as Sardinian (`sdi`) or mainland European (`eur`).
+
+| Group | Code | Sample Size |
+|-------|------|-------------|
+| Sardinian | sdi | 27 |
+| Mainland Europe | eur | 662 |
+
+```r
+# Select NFE samples (including CEU) and code Sardinians vs mainland
+dfEur <- dfFilter %>% filter(project_meta.project_pop %in% c("nfe"))
+dfEur <- dfEur %>% select("IID", "project_meta.project_pop", "population", "latitude", "longitude")
+colnames(dfEur) <- c("IID", "pop", "subpop", "lat", "long")
+dfEur <- dfEur %>%
+  mutate(SDI = case_when(subpop == "Sardinian" ~ "sdi", TRUE ~ "eur")) %>%
+  dplyr::select(IID, SDI, everything())
+dfEur <- dfEur %>% mutate(FID = 0) %>% select(FID, everything())
+```
+
+---
+
+### 4. All Continental (N = 3,859)
+
+We included all five major population groups to test all $\binom{5}{2} = 10$ pairwise continental contrasts.
+
+| Population | Code | Sample Size |
+|------------|------|-------------|
+| East Asia | eas | 825 |
+| Africa | afr | 1,003 |
+| South Asia | sas | 790 |
+| Non-Finnish Europe | nfe | 689 |
+| America | amr | 552 |
+
+```r
+# Select all five continental populations
+dfAll <- dfFilter %>%
+  filter(project_meta.project_pop %in% c("nfe", "afr", "amr", "eas", "sas")) %>%
+  select("IID", "project_meta.project_pop", "population", "latitude", "longitude")
+colnames(dfAll) <- c("IID", "pop", "subpop", "lat", "long")
+dfAll <- dfAll %>% mutate(FID = 0) %>% select(FID, everything())
+```
 
 ---
 
