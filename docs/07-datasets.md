@@ -85,7 +85,7 @@ ggplot(data = df, aes(x = PC1, y = PC2, color = continental)) +
                      na.value = "gray70")
 ```
 
-![PC1 vs PC2 of the full UK Biobank colored by self-identified ethnic background](assets/images/PCA.png)
+![PC1 vs PC2 of the full UK Biobank colored by self-identified ethnic background](../assets/images/PCA.png)
 
 ### Constructing the intermediate GWAS panels
 
@@ -127,7 +127,7 @@ p1 <- ggplot(data = dfPlot, aes(x = PC1, y = PC2, color = Sample)) +
 p <- grid.arrange(p1, p2, p3, p4, nrow = 1)
 ```
 
-![The four intermediate GWAS panels highlighted against the full UK Biobank in PC space](assets/images/gwasEpanels.png)
+![The four intermediate GWAS panels highlighted against the full UK Biobank in PC space](../assets/images/gwasEpanels.png)
 
 ### Removing country of birth overlap
 
