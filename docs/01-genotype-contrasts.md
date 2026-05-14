@@ -45,7 +45,7 @@ rule HGDP_freq:
         """
 ```
 
-We then compared allele frequencies between the HGDP1kGP and UK Biobank to identify SNPs that needed to be flipped using [`flip_snps.R`](../scripts/HGDP1KG/overlapping_snp.R):
+We then compared allele frequencies between the HGDP1kGP and UK Biobank to identify SNPs that needed to be flipped using [`flip_snps.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/flip_snps.R):
 
 ```
 rule recode_list:
@@ -99,7 +99,7 @@ rule get_AF_Test:
         """
 ```
 
-We then identified the overlapping SNPs between each prediction panel and GWAS panel using [`overlapping_snps.R`](../scripts/HGDP1KG/overlapping_snp.R):
+We then identified the overlapping SNPs between each prediction panel and GWAS panel using [`overlapping_snps.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/overlapping_snp.R):
 
 ```
 rule get_overlapping_snps:
