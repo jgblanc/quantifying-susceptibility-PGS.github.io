@@ -31,7 +31,7 @@ The analysis is implemented as a Snakemake workflow. The pages below document ea
 
 | Step | Description |
 |------|-------------|
-| [Datasets](docs/07-datasets.md) | HGDP1kGP, UK Biobank panels, and prediction sets |
+| [Datasets](docs/07-datasets) | HGDP1kGP, UK Biobank panels, and prediction sets |
 | [1. Genotype Contrasts](docs/01-genotype-contrasts.md) | Computing allele frequency contrasts ($\hat{r}$) |
 | [2. Uncorrected Susceptibility](docs/02-uncorrected-susceptibility.md) | Estimating H and the target axis f |
 | [3. PCA Correction](docs/03-pca-correction.md) | Common and rare variant principal components |
