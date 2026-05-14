@@ -301,4 +301,44 @@ rule compute_r_eur:
 
 ### Data Preparation
 
+As with the HGDP1kGP contrasts, we first identify the set of overlapping SNPs with greater than 1% minor allele frequency in both the Country of Birth prediction panel and each GWAS panel.
+
+We compute allele frequencies within the Country of Birth prediction panel for each chromosome:
+
+```
+rule get_AF_Test:
+    input:
+        test="data/InUKBB/ids/test_ids/CountryOfBirthUK.txt"
+    output:
+        test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}.afreq"
+    params:
+        prefix_in="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3",
+        prefix_out_test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}"
+    shell:
+        """
+        plink2 --pfile {params.prefix_in} \
+        --freq \
+        --maf 0.01 \
+        --keep {input.test} \
+        --threads 8 \
+        --memory 38000 \
+        --out {params.prefix_out_test}
+        """
+```
+
+We then identify the overlapping SNPs between the prediction panel and each GWAS panel using [`overlapping_snps.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/InUKBB/overlapping_snps.R):
+
+```
+rule get_overlapping_snps:
+    input:
+        freq_test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}.afreq",
+        freq_gwas="data/ukbb/variantFreq/{gwas}_{chr}.afreq"
+    output:
+        "data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    shell:
+        """
+        Rscript code/InUKBB/overlapping_snps.R {input.freq_gwas} {input.freq_test} {output}
+        """
+```
+
 ### Computing Contrasts
