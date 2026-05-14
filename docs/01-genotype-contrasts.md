@@ -342,3 +342,69 @@ rule get_overlapping_snps:
 ```
 
 ### Computing Contrasts
+
+As with the continental contrasts, we first construct standardized test vectors for all $\binom{5}{2} = 10$ pairwise country-of-birth contrasts, then compute the allele frequency contrast $\hat{r}$ across all overlapping SNPs for each chromosome.
+
+Test vectors are constructed using [`get_Tvec.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/InUKBB/get_Tvec.R), which codes each individual as $+1$ or $-1$ depending on their country of birth, then mean-centers and standardizes the vector to unit variance:
+
+```
+rule make_test_vectors:
+    input:
+        "data/InUKBB/ids/test_ids/CountryOfBirthUK.txt"
+    output:
+        p1="data/InUKBB/TestVecs/England-NorthernIreland.txt",
+        p2="data/InUKBB/TestVecs/England-RepublicOfIrelend.txt",
+        p3="data/InUKBB/TestVecs/England-Scotland.txt",
+        p4="data/InUKBB/TestVecs/England-Wales.txt",
+        p5="data/InUKBB/TestVecs/NorthernIreland-RepublicOfIrelend.txt",
+        p6="data/InUKBB/TestVecs/NorthernIreland-Scotland.txt",
+        p7="data/InUKBB/TestVecs/NorthernIreland-Wales.txt",
+        p8="data/InUKBB/TestVecs/RepublicOfIrelend-Scotland.txt",
+        p9="data/InUKBB/TestVecs/RepublicOfIrelend-Wales.txt",
+        p10="data/InUKBB/TestVecs/Scotland-Wales.txt"
+    shell:
+        """
+        Rscript code/InUKBB/get_Tvec.R {output.p1} ... {output.p10} {input}
+        """
+```
+
+The allele frequency contrasts are then computed for each chromosome using [`get_contrasts.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/InUKBB/get_contrasts.R):
+
+```
+rule compute_r:
+    input:
+        p1="data/InUKBB/TestVecs/England-NorthernIreland.txt",
+        ...
+        p10="data/InUKBB/TestVecs/Scotland-Wales.txt",
+        SNPs="data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/InUKBB/r/{gwas}/England-NorthernIreland_chr{chr}.rvec",
+        ...
+        p10="data/InUKBB/r/{gwas}/Scotland-Wales_chr{chr}.rvec"
+    params:
+        prefix_in="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3"
+    shell:
+        """
+        Rscript code/InUKBB/get_contrasts.R {input.SNPs} {params.prefix_in} \
+        {input.p1} ... {input.p10} {output.p1} ... {output.p10}
+        """
+```
+
+The overlapping SNP list is then copied to each pairwise contrast directory:
+
+```
+rule rename_overlap_snps_all:
+    input:
+        "data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/InUKBB/variants/{gwas}/England-NorthernIreland/overlappingSNPs_chr{chr}.txt",
+        ...
+        p10="data/InUKBB/variants/{gwas}/Scotland-Wales/overlappingSNPs_chr{chr}.txt"
+    shell:
+        """
+        cp {input} {output.p1}
+        ...
+        cp {input} {output.p10}
+        rm {input}
+        """
+```
