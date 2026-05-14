@@ -116,6 +116,185 @@ rule get_overlapping_snps:
 
 ### Computing Contrasts
 
+
+For each prediction panel, we first construct a standardized test vector $t$ that positions each individual along the ancestry axis of interest, then compute the allele frequency contrast $\hat{r} = \frac{1}{N} X^{\top} t$ across all overlapping SNPs. Contrasts are computed separately for each chromosome and stored as `.rvec` files.
+
+---
+
+#### All Continental Pairwise Contrasts
+
+Test vectors for all $\binom{5}{2} = 10$ pairwise contrasts are constructed simultaneously using [`get_Tvec_all.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_Tvec_all.R), which codes each individual as $+1$ or $-1$ depending on their population label, then mean-centers and standardizes the vector to unit variance:
+
+```
+rule make_test_vectors_all:
+    input:
+        "data/HGDP1KG/ids/test_ids/all.txt"
+    output:
+        p1="data/HGDP1KG/TestVecs/eas-nfe.txt",
+        p2="data/HGDP1KG/TestVecs/eas-sas.txt",
+        p3="data/HGDP1KG/TestVecs/eas-afr.txt",
+        p4="data/HGDP1KG/TestVecs/eas-amr.txt",
+        p5="data/HGDP1KG/TestVecs/nfe-sas.txt",
+        p6="data/HGDP1KG/TestVecs/nfe-afr.txt",
+        p7="data/HGDP1KG/TestVecs/nfe-amr.txt",
+        p8="data/HGDP1KG/TestVecs/sas-afr.txt",
+        p9="data/HGDP1KG/TestVecs/sas-amr.txt",
+        p10="data/HGDP1KG/TestVecs/afr-amr.txt"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_Tvec_all.R {output.p1} ... {output.p10} {input}
+        """
+```
+
+The allele frequency contrasts are then computed for each chromosome using [`get_contrasts_all.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_contrasts_all.R):
+
+```
+rule compute_r_all:
+    input:
+        p1="data/HGDP1KG/TestVecs/eas-nfe.txt",
+        ...
+        p10="data/HGDP1KG/TestVecs/afr-amr.txt",
+        SNPs="data/HGDP1KG/variants/{gwas}/all/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/HGDP1KG/r/{gwas}/eas-nfe_chr{chr}.rvec",
+        ...
+        p10="data/HGDP1KG/r/{gwas}/afr-amr_chr{chr}.rvec"
+    params:
+        prefix_tp="data/HGDP1KG/plink2-files/gnomad.genomes.v3.1.2.hgdp_tgp.chr{chr}"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_contrasts_all.R {input.SNPs} {params.prefix_tp} \
+        {input.p1} ... {input.p10} {output.p1} ... {output.p10}
+        """
+```
+
+The overlapping SNP list is then copied to each pairwise contrast directory:
+
+```
+rule rename_overlap_snps_all:
+    input:
+        "data/HGDP1KG/variants/{gwas}/all/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/HGDP1KG/variants/{gwas}/eas-nfe/overlappingSNPs_chr{chr}.txt",
+        ...
+        p10="data/HGDP1KG/variants/{gwas}/afr-amr/overlappingSNPs_chr{chr}.txt"
+    shell:
+        """
+        cp {input} {output.p1}
+        ...
+        cp {input} {output.p10}
+        """
+```
+
+---
+
+#### Sardinia vs. Mainland Europe
+
+The Sardinia contrast test vector is constructed using [`get_Tvec_sdi.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_Tvec_sdi.R), which codes Sardinian individuals as $+1$ and all other non-Finnish Europeans as $-1$ (before standardization):
+
+```
+rule make_test_vectors_sdi:
+    input:
+        "data/HGDP1KG/ids/test_ids/nfe.txt"
+    output:
+        "data/HGDP1KG/TestVecs/sdi-eur.txt"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_Tvec_sdi.R {input} {output}
+        """
+```
+
+The contrast is then computed using [`get_contrasts_sdi.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_contrasts_sdi.R):
+
+```
+rule compute_r_sdi:
+    input:
+        p1="data/HGDP1KG/TestVecs/sdi-eur.txt",
+        SNPs="data/HGDP1KG/variants/{gwas}/all/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/HGDP1KG/r/{gwas}/sdi-eur_chr{chr}.rvec"
+    params:
+        prefix_tp="data/HGDP1KG/plink2-files/gnomad.genomes.v3.1.2.hgdp_tgp.chr{chr}"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_contrasts_sdi.R {input.SNPs} {params.prefix_tp} \
+        {input.p1} {output.p1}
+        """
+```
+
+---
+
+#### Latitude and Longitude in Eurasia
+
+Test vectors for Eurasian latitude and longitude are constructed using [`get_Tvec_cord.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_Tvec_cord.R), which mean-centers and standardizes the provided geographic coordinates to unit variance:
+
+```
+rule make_test_vectors_Eurasia:
+    input:
+        testids="data/HGDP1KG/ids/test_ids/eurasia.txt"
+    output:
+        Lat="data/HGDP1KG/TestVecs/eurasia-lat.txt",
+        Long="data/HGDP1KG/TestVecs/eurasia-long.txt"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_Tvec_cord.R {input.testids} {output.Lat} {output.Long}
+        """
+```
+
+Contrasts are computed using [`get_contrasts_cord.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/HGDP1KG/get_contrasts_cord.R):
+
+```
+rule compute_r_eurasia:
+    input:
+        p1="data/HGDP1KG/TestVecs/eurasia-lat.txt",
+        p2="data/HGDP1KG/TestVecs/eurasia-long.txt",
+        SNPs="data/HGDP1KG/variants/{gwas}/eurasia/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/HGDP1KG/r/{gwas}/eurasia-lat_chr{chr}.rvec",
+        p2="data/HGDP1KG/r/{gwas}/eurasia-long_chr{chr}.rvec"
+    params:
+        prefix_tp="data/HGDP1KG/plink2-files/gnomad.genomes.v3.1.2.hgdp_tgp.chr{chr}"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_contrasts_cord.R {input.SNPs} {params.prefix_tp} \
+        {input.p1} {output.p1} {input.p2} {output.p2}
+        """
+```
+
+---
+
+#### Latitude and Longitude in Europe
+
+The same scripts are used for the non-Finnish European latitude and longitude contrasts, using the CEU-excluded sample:
+
+```
+rule get_TestVector_Eur:
+    input:
+        testids="data/HGDP1KG/ids/test_ids/nfe_no_ceu.txt"
+    output:
+        Lat="data/HGDP1KG/TestVecs/eur-lat.txt",
+        Long="data/HGDP1KG/TestVecs/eur-long.txt"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_Tvec_cord.R {input.testids} {output.Lat} {output.Long}
+        """
+
+rule compute_r_eur:
+    input:
+        p1="data/HGDP1KG/TestVecs/eur-lat.txt",
+        p2="data/HGDP1KG/TestVecs/eur-long.txt",
+        SNPs="data/HGDP1KG/variants/{gwas}/nfe_no_ceu/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/HGDP1KG/r/{gwas}/eur-lat_chr{chr}.rvec",
+        p2="data/HGDP1KG/r/{gwas}/eur-long_chr{chr}.rvec"
+    params:
+        prefix_tp="data/HGDP1KG/plink2-files/gnomad.genomes.v3.1.2.hgdp_tgp.chr{chr}"
+    shell:
+        """
+        Rscript code/HGDP1KG/get_contrasts_cord.R {input.SNPs} {params.prefix_tp} \
+        {input.p1} {output.p1} {input.p2} {output.p2}
+        """
+```
 ---
 
 ## Country of Birth Contrasts
