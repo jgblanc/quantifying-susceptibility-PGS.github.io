@@ -136,6 +136,23 @@ dfEur <- dfEur %>% mutate(FID = 0) %>% select(FID, everything())
 
 To investigate fine-scale axes of variation, we selected UK Biobank individuals whose country of birth was listed as one of five British Isles countries and whose self-identified ethnic background was recorded as White. This gave $\binom{5}{2} = 10$ pairwise country-of-birth contrasts.
 
+```r
+# Load country of birth data and assign labels
+dfCoBUK <- fread("../data/InUKBB/data/CountryOfBirthUK_1647.txt")
+dfCoBUK <- dfCoBUK %>% filter(CountryOfBirthUK_1647 > 0) %>%
+  mutate(CoB = case_when(CountryOfBirthUK_1647 == 1 ~ "England",
+                         CountryOfBirthUK_1647 == 2 ~ "Wales",
+                         CountryOfBirthUK_1647 == 3 ~ "Scotland",
+                         CountryOfBirthUK_1647 == 4 ~ "NorthernIreland",
+                         CountryOfBirthUK_1647 == 5 ~ "RepublicOfIreland",
+                         CountryOfBirthUK_1647 == 6 ~ "Elsewhere"))
+
+# Join with PCA data and restrict to self-identified European ancestry
+dfCoBUK <- inner_join(dfCoBUK, df) %>% filter(continental == "Europe")
+```
+
+Individuals coded as "Elsewhere" were excluded from the prediction panel. The final sample sizes for each country of birth are:
+
 | Country | Code | Sample Size |
 |---------|------|-------------|
 | England | ENG | 142,215 |
