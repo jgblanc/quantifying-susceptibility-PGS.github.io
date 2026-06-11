@@ -21,7 +21,7 @@ We estimate $H$ in three pieces:
 
 1. **Variance of the contrast, $\hat{\sigma}_{r}^2$.** The dispersion of $\hat{r}$ across the LD-pruned SNPs.
 2. **The target axis, $\hat{f}$, and its variance $\hat{\sigma}_f^2$.** We project each GWAS individual's genotypes onto $\hat{r}$, computed block-by-block so that the same per-block scores can be reused for the block jackknife.
-3. **$\hat{H}$ and its sampling distribution.** We form $\hat{H} = \hat{\sigma}_f^2$ $\hat{\sigma}_{r}^2$ and use a weighted block jackknife over approximately independent LD blocks to obtain a standard error and a $p$-value against the null $H \approx 1/L$.
+3. **$\hat{H}$ and its sampling distribution.** We form $\hat{H}$ and use a weighted block jackknife over approximately independent LD blocks to obtain a standard error and a $p$-value against the null $H \approx 1/L$.
 
 All estimation is restricted to the set of LD-pruned, high-quality SNPs used to compute the UK Biobank principal components (pruned to pairwise $r^2 < 0.1$), intersected with the SNPs for which we have contrast values. This minimizes inflation of $\hat{H}$ due to linkage disequilibrium between nearby sites.
 
