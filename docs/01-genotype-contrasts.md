@@ -19,10 +19,6 @@ where $X$ is the $N \times L$ matrix of prediction panel genotypes and $t$ is th
 
 ### Data Preparation
 
-## HGDP1kGP Contrasts
-
-### Data Preparation
-
 The HGDP1kGP data were distributed in plink2 format aligned to the hg19 genome build. Before computing genotype contrasts, we harmonized the HGDP1kGP data to match the UK Biobank reference/alternate allele coding, and identified the set of overlapping SNPs between each prediction panel and GWAS panel.
 
 #### Step 1: Recode SNPs to match UK Biobank allele coding
