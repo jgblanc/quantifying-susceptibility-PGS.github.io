@@ -101,94 +101,53 @@ sdR  <- sd(dfALL$r)
 
 ---
 
-## Step 2: The target axis ($\hat{f}$) and its variance
+## Step 2: Estimate $\hat{H}$ and test significance
 
-The target axis $\hat{f}$ positions each of the $M$ GWAS individuals along the shared ancestry gradient. It is the projection of the GWAS genotypes onto the contrast, normalized by $r^\top r$:
+The susceptibility estimate combines the variance of the target axis and the variance of the contrast:
 
-$$\hat{f} = \frac{1}{(L-1)\,\hat{\sigma}_{r}^2}\, G\left(\hat{r} - \bar{\hat{r}}\right)$$
+$$\hat{\sigma}_{r}^2 = \frac{1}{L-1} \sum_{\ell=1}^{L} \left( \hat{r}_\ell - \bar{\hat{r}} \right)^2, \qquad
+\hat{\sigma}_f^2 = \frac{1}{M-1} \sum_{m=1}^{M} \left( \hat{f}_m - \bar{\hat{f}} \right)^2, \qquad
+\hat{H} = \hat{\sigma}_f^2 \cdot \hat{\sigma}_{r}^2.$$
 
-Because the panel-specific component $r^\dagger$ is, by construction, orthogonal to the GWAS panel structure, $G r^\dagger \approx 0$ at large $L$, so this projection effectively isolates the shared signal $G r^\ast$.
-
-### Block-wise projection
-
-We compute the projection **one LD block at a time**, storing an $M \times B$ matrix of per-block scores. This is the expensive step but it lets the same scores be reused for the jackknife without rescoring. The projection rule (script: [`calc_Gr.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_FGr/calc_Gr.R)) is:
+Both variances and the jackknife are computed in a single pass by [`calc_H.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_H/calc_H.R), which reads the contrast values, the per-block score matrix, and the block assignments:
 
 ```
-rule calc_FGr_blocks:
+rule calc_H:
     input:
         r=expand("data/{dataset}/r/{gwas}/{contrasts}_chr{chr}.rvec", chr=CHR),
-        IDs="data/ids/gwas_ids/{gwas}.txt",
-        snps="data/ukbb/ukbb_pc_snps_block.txt"
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        snp_num = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        Tvec = "data/{dataset}/TestVecs/{contrasts}.txt",
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
     output:
-        FGr  = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
-        SNPs = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt"
+        H = "output/calculate_H/{dataset}/{gwas}/H_{contrasts}.txt"
     shell:
         """
-        Rscript code/calculate_FGr/calc_Gr.R {params.plink_prefix} {params.r_prefix} \
-        {params.out_prefix} {input.snps} {input.IDs} {output.FGr} {output.SNPs}
+        Rscript code/calculate_H/calc_H.R {params.r_prefix} {input.FGr} {input.snp_num} \
+        {input.Tvec} {output.H} {input.pc_snps}
         """
 ```
 
-Each block is scored with `plink2 --score`, using `variance-standardize` so that genotypes are standardized to unit variance, and `scoresums` so that the score is the sum over SNPs of the standardized genotype weighted by the contrast value:
-
-```r
-plink_cmd <- paste0("plink2 --pfile ", plink_prefix,
-  " --keep ", id_file, " --extract ", snp_name,
-  " --read-freq ", freq_file,
-  " --score ", tmp_r_name,
-  " header-read variance-standardize cols=dosagesum,scoresums --out ", out_prefix)
-
-# Loop over the 581 blocks, scoring each and storing a column of the FGr matrix
-for (i in 1:numBlocks) {
-  dfR_tmp <- dfALL %>% filter(block == blockNum) %>% select("ID", "ALT", "r")
-  fwrite(dfR_tmp, tmp_r_name, sep = "\t")
-  system(plink_cmd)
-  df <- fread(paste0(out_prefix, ".sscore"))
-  dfFGr_mat[, i] <- as.matrix(df[, 3])
-}
-```
-
-### From blocks to $\hat{f}$
-
-Summing the per-block scores across all blocks and dividing by $r^\top r$ gives $\hat{f}$. This is done in [`calc_fhat.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_FGr/calc_fhat.R) (used to produce $\hat{f}$ for visualization), and the same logic is embedded in the $H$ estimator below:
+The three quantities above correspond to three helper functions in the script — note that $\hat{\sigma}_{r}^2$ is computed here, directly from the contrast values, rather than in a separate step:
 
 ```r
 calc_fhat <- function(dfMat, r) {
   r <- r - mean(r)
-  fhat_raw <- apply(dfMat, 1, sum)        # sum scores across blocks
+  fhat_raw <- apply(dfMat, 1, sum)        # sum block scores
   rTr <- as.numeric(t(r) %*% r)           # = (L-1) * sigma^2_r
   fhat <- fhat_raw / rTr
   return(fhat)
 }
-```
+calc_sigma2_f <- function(fhat, M) {
+  fhat <- fhat - mean(fhat)
+  as.numeric(t(fhat) %*% fhat) / (M - 1)
+}
+calc_sigma2_r <- function(r, L) {
+  r <- r - mean(r)
+  as.numeric(t(r) %*% r) / (L - 1)
+}
 
-The variance of the target axis is then
-
-$$\hat{\sigma}_f^2 = \frac{1}{M-1} \sum_{m=1}^{M} \left( \hat{f}_m - \bar{\hat{f}} \right)^2.$$
-
----
-
-## Step 3: Estimating $\hat{H}$ and testing significance
-
-With $\hat{\sigma}\_f^2$ and $\hat{\sigma}_{r}^2$ in hand, the susceptibility estimate is simply their product:
-
-$$\hat{H} = \hat{\sigma}_f^2 \, \hat{\sigma}_{r}^2.$$
-
-[`calc_H.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_H/calc_H.R) combines the per-block score matrix with the contrast values to compute $\hat{H}$ and its block-jackknife standard error in a single pass:
-
-```
-rule calc_H_Jacknife:
-    input:
-        r=expand("data/{dataset}/r/{gwas}/{contrasts}_chr{chr}.rvec", chr=CHR),
-        IDs="data/ids/gwas_ids/{gwas}.txt",
-        snps="data/ukbb/ukbb_pc_snps_block.txt"
-    output:
-        H = "output/calculate_H/{dataset}/{gwas}/H_BJ_{contrasts}.txt"
-    shell:
-        """
-        Rscript code/calculate_H/calc_H.R {params.plink_prefix} {params.r_prefix} \
-        {params.out_prefix} {input.snps} {input.IDs} {output.H}
-        """
+H <- calc_sigma2_f(fhat, M) * calc_sigma2_r(dfALL$r, L)
 ```
 
 ### The null expectation
@@ -197,7 +156,7 @@ Under the null hypothesis of no structure along the target axis ($\sigma_f^2 = 0
 
 $$\mathbb{E}\!\left[\hat{H} \mid \sigma_f^2 = 0\right] \approx \frac{1}{L} + \rho,$$
 
-where $\rho$ is the average squared correlation between sites. With our LD-pruned SNP set we assume $\rho \ll 1/L$, so the **theoretical limit of detection is $\approx 1/L$**. This value is the dashed reference line in the susceptibility figures, and it is the null mean used in the significance test below.
+where $\rho$ is the average squared correlation between sites. With our LD-pruned SNP set we assume $\rho \ll 1/L$, so the **theoretical limit of detection is $\approx 1/L$**. This value is the dashed reference line in the susceptibility figures and the null mean used in the significance test.
 
 ### Block jackknife
 
@@ -215,10 +174,7 @@ for (i in 1:numBlocks) {
   dfR_not_i <- dfALL %>% filter(block != blockNum)
 
   fhat_i    <- calc_fhat(dfMat[, -i], dfR_not_i$r)
-  sigma2F_i <- calc_sigma2_f(fhat_i, M)
-  sigma2r_i <- calc_sigma2_r(dfR_not_i$r, L - mi)
-  Hi        <- sigma2F_i * sigma2r_i
-
+  Hi        <- calc_sigma2_f(fhat_i, M) * calc_sigma2_r(dfR_not_i$r, L - mi)
   allHs[i]  <- ((L - mi) / mi) * (H - Hi)^2
 }
 varH <- mean(allHs)
@@ -227,7 +183,8 @@ varH <- mean(allHs)
 pvalNorm <- pnorm(H, mean = 1/L, sd = sqrt(varH), lower.tail = FALSE)
 ```
 
-The output table records $\hat{H}$, $L$, the jackknife variance, the one-sided $p$-value against $1/L$, and the component variances $\hat{\sigma}_{r}^2$ and $\hat{\sigma}_f^2$. Across the analyses, results for each contrast are concatenated into `plots/overlap_stats/H_{dataset}.txt` via `concat_OverlapStats.R`.
+The output table records $\hat{H}$, $L$, the jackknife variance, the one-sided $p$-value against $1/L$, and the component variances $\hat{\sigma}_{r}^2$ and $\hat{\sigma}_f^2$. Results for each contrast are concatenated into `plots/overlap_stats/H_{dataset}.txt` via `concat_OverlapStats.R`.
+
 
 ![Figure 1: $\hat{H}$ for all contrasts](../assets/images/H.png)
 
