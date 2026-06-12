@@ -163,7 +163,7 @@ for (i in seq_len(ncol(PC_nums))) {
 
 The same step is run with rare PCs (`calc_R2_even_rare`, also via `R2_EO.R`) and with common + rare PCs jointly (`calc_R2_even_common_rare`, via `R2_EO_both.R`), letting us compare how much additional structure rare variants capture beyond common ones.
 
-![Fraction of target-axis variance captured by common and rare PCs](../assets/images/PC_Fig.png)
+![Fraction of target-axis variance captured by common and rare PCs](../assets/images/PCFig.png)
 
 
 
