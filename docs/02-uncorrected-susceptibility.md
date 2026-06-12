@@ -168,7 +168,7 @@ $$\hat{\sigma}_f^2 = \frac{1}{M-1} \sum_{m=1}^{M} \left( \hat{f}_m - \bar{\hat{f
 
 ## Step 3: Estimating $\hat{H}$ and testing significance
 
-With $\hat{\sigma}_f^2$ and $\hat{\sigma}_{r}^2$ in hand, the susceptibility estimate is simply their product:
+With $\hat{\sigma}\_f^2$ and $\hat{\sigma}_{r}^2$ in hand, the susceptibility estimate is simply their product:
 
 $$\hat{H} = \hat{\sigma}_f^2 \, \hat{\sigma}_{r}^2.$$
 
