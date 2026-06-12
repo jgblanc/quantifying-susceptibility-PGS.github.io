@@ -1,0 +1,719 @@
+# Snakefile to run main pipeline
+CHR = []
+for i in range(1, 23):
+  CHR.append(str(i))
+CONTRASTS = ["sdi-eur", "eurasia-lat", "eurasia-long", "eur-lat", "eur-long", "eas-nfe", "eas-sas", "eas-afr", "eas-amr", "nfe-sas", "nfe-afr", "nfe-amr", "sas-afr", "sas-amr", "afr-amr"]
+#CONTRASTS = ["England-NorthernIreland", "England-RepublicOfIrelend", "England-Scotland", "England-Wales", "NorthernIreland-RepublicOfIrelend", "NorthernIreland-Scotland", "NorthernIreland-Wales", "RepublicOfIrelend-Scotland", "RepublicOfIrelend-Wales", "Scotland-Wales"]
+DATASET = ["HGDP1KG"]
+#GWAS = ["WBS-R", "ALL-R", "e5", "e10", "e50", "e200"]
+GWAS = ["WBS", "ALL","e5", "e10", "e50", "e200"]
+COVARS = ["pcs", "nopcs"]
+PHENOTYPE = ["Alkaline_Phosphate", "Aspartate_Aminotransferase", "Basophill_Percentage", "Body_Weight", "Cholesterol", "Eosinophill_Percentage", "Glucose", "HbA1c", "HDL", "LDL", "MCHC","MCV", "Platelet_Count", "SBP", "Standing_Height", "Total_Protein", "Triglycerides"]
+GTYPE = ["LR", "LMM"]
+THRESHOLD = ["strict", "loose"]
+
+def get_chr_range(x):
+  if x == "1":
+    out = x
+  else:
+    out = "1-" + x
+  return out
+
+
+rule all:
+    input:
+        expand("plots/error/common_rare_R2EO_{dataset}.txt", gwas =GWAS, dataset=DATASET,contrasts=CONTRASTS, covars=COVARS, chr=CHR, gtype=GTYPE,threshold=THRESHOLD, phenotype=PHENOTYPE)
+
+localrules: concat_pga_test
+
+
+##### Calculate \hat{f} ####
+
+rule calc_Gr_block:
+    input:
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        IDs="data/ids/gwas_ids/{gwas}.txt",
+        snps="data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        SNPs = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        out_prefix="output/calculate_FGr/{dataset}/{gwas}/tmp_{contrasts}",
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    threads: 8
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    shell:
+        """
+        Rscript code/calculate_FGr/calc_Gr.R {params.plink_prefix} {params.r_prefix} {params.out_prefix} {input.snps} {input.IDs} {output.FGr} {output.SNPs}
+	      """
+
+rule calc_FGr:
+    input:
+        FGr_block = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        IDs="data/ids/gwas_ids/{gwas}.txt",
+        snps="data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/fhat_{contrasts}.txt"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    shell:
+        """
+        Rscript code/calculate_FGr/calc_fhat.R {input.FGr_block} {output.FGr} {params.r_prefix} {input.IDs} {input.snps}
+	      """
+
+##### Calculate H #####
+
+# Get block info for PC SNPs
+
+rule block_snps:
+    input:
+        snps="data/ukbb/ukbb_pc_snps.txt",
+        blocks="data/LD_blocks/big_blocks.bed"
+    output:
+        "data/ukbb/ukbb_pc_snps_block.txt"
+    shell:
+        """
+        Rscript code/blocks/add_block_info.R {input} {output}
+        """
+
+# Concat chromosomes and extract PCA SNPs
+
+rule concat_chr:
+    input:
+        pgen=expand("/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen", chr=CHR),
+        pvar=expand("/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar", chr=CHR),
+        psam=expand("/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam", chr=CHR),
+        snps="data/ukbb/ukbb_pc_snps.txt"
+    output:
+        "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3.pgen",
+        "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3.pvar",
+        "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3.psam",
+    params:
+        prefix_out="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        merge_prefix=expand("/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3", chr=CHR, newline="\n")
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="12:00:00"
+    shell:
+        """
+        echo {params.merge_prefix} > tmp.txt
+	tr ' ' '\n' < "tmp.txt" > "tmp_chr_list.txt"
+        plink2 --pmerge-list tmp_chr_list.txt \
+        --extract {input.snps} \
+	      --threads 16 \
+        --memory 60000 \
+        --make-pgen \
+        --freq \
+        --out {params.prefix_out}
+         """
+
+# Calculate H
+
+rule calc_H:
+    input:
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        snp_num = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        Tvec = "data/{dataset}/TestVecs/{contrasts}.txt",
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        H = "output/calculate_H/{dataset}/{gwas}/H_{contrasts}.txt"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    threads: 8
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    shell:
+        """
+        Rscript code/calculate_H/calc_H.R {params.r_prefix} {input.FGr} {input.snp_num} {input.Tvec} {output.H} {input.pc_snps}
+	      """
+
+# Summarize H results
+
+rule concat_H:
+    input:
+        expand("output/calculate_H/{{dataset}}/{gwas}/H_{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS)
+    output:
+        "plots/overlap_stats/H_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_OverlapStats.R {output} {input}
+	      """
+
+##### Calculate H' #####
+
+# Calculate fhat prime
+
+rule residulize_GR:
+    input:
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        oddPCs="output/calculate_PCA/{gwas}/odd_PCA.eigenvec",
+        evenPCs="output/calculate_PCA/{gwas}/even_PCA.eigenvec",
+        oddPCs_rare="output/calculate_PCA/{gwas}/rare_odd_PCA.eigenvec",
+        evenPCs_rare="output/calculate_PCA/{gwas}/rare_even_PCA.eigenvec",
+        snp_num = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt"
+    output:
+        GRPrime="output/calculate_FGr/{dataset}/{gwas}/FGrMatPrime_{contrasts}.txt"
+    resources:
+        mem_mb=38000,
+        time="01:00:00"
+    params:
+        pca_prefix="output/calculate_PCA/{gwas}/"
+    shell:
+        """
+        Rscript code/calculate_FGr/calc_GR_prime.R {input.FGr} {params.pca_prefix} {output.GRPrime} {input.snp_num}
+        """
+
+
+# Calculate HPrime
+
+rule calc_HPrime_Jacknife:
+    input:
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMatPrime_{contrasts}.txt",
+        snp_num = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        Tvec = "data/{dataset}/TestVecs/{contrasts}.txt",
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        H = "output/calculate_H/{dataset}/{gwas}/HPrime_{contrasts}.txt"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    threads: 8
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    shell:
+        """
+        Rscript code/calculate_H/calc_H.R {params.r_prefix} {input.FGr} {input.snp_num} {input.Tvec} {output.H} {input.pc_snps}
+	      """
+
+# Summarize H' results
+
+rule concat_HPrime:
+    input:
+        expand("output/calculate_H/{{dataset}}/{gwas}/HPrime_{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS)
+    output:
+        "plots/overlap_stats/HPrime_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_OverlapStats.R {output} {input}
+	      """
+
+
+##### Calculate Error #####
+
+rule calc_error:
+    input:
+        FGr = "output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        snp_num = "output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        error = "output/calculate_FGr/{dataset}/{gwas}/error_{contrasts}.txt"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    threads: 8
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    shell:
+        """
+        Rscript code/calculate_FGr/calc_error.R {params.r_prefix} {input.FGr} {input.snp_num} {output.error} {input.pc_snps}
+	      """
+
+rule concat_error:
+    input:
+        expand("output/calculate_FGr/{{dataset}}/{gwas}/error_{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS)
+    output:
+        "plots/error/error_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_Error.R {output} {input}
+	      """
+
+##### Calculate R^2 #######
+
+## Compute full set of PCs
+
+rule calc_PCA:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/commonPCA.eigenvec",
+        "output/calculate_PCA/{gwas}/commonPCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        out_prefix="output/calculate_PCA/{gwas}/commonPCA"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 60000 \
+        --out {params.out_prefix}
+	      """
+
+####### Compute R2 for even/odd chromosomes ###########
+
+rule calc_odd_PCA:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/odd_PCA.eigenvec",
+        "output/calculate_PCA/{gwas}/odd_PCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        out_prefix="output/calculate_PCA/{gwas}/odd_PCA"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+        --chr 1,3,5,7,9,11,13,15,17,19,21 \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 60000 \
+        --out {params.out_prefix}
+	      """
+
+rule calc_even_PCA:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/even_PCA.eigenvec",
+        "output/calculate_PCA/{gwas}/even_PCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        out_prefix="output/calculate_PCA/{gwas}/even_PCA"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+        --chr 2,4,6,8,10,12,14,16,18,20,22 \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 60000 \
+        --out {params.out_prefix}
+	      """
+
+rule calc_R2_even:
+    input:
+        PCs="output/calculate_PCA/{gwas}/odd_PCA.eigenvec",
+        FGr="output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        SNPs="output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        R2="output/calculate_FGr/{dataset}/{gwas}/R2_EO/{contrasts}.txt",
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    shell:
+        """
+        Rscript code/calculate_FGr/R2_EO.R {input.PCs} {input.FGr} {input.SNPs} {output.R2} {params.r_prefix} {input.pc_snps}
+	      """
+
+rule concat_R2_EO:
+    input:
+        expand("output/calculate_FGr/{{dataset}}/{gwas}/R2_EO/{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS, chr=CHR)
+    output:
+        "plots/error/R2EO_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_R2EO.R {output} {input}
+	      """
+
+######## Compute R2 for even/odd chromosomes - RARE Variants ############
+
+rule calc_odd_PCA_rare:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/rare_odd_PCA.eigenvec",
+        "output/calculate_PCA/{gwas}/rare_odd_PCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL",
+        out_prefix="output/calculate_PCA/{gwas}/rare_odd_PCA"
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+	--thin-count 1000000 \
+        --chr 1,3,5,7,9,11,13,15,17,19,21 \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 60000 \
+        --out {params.out_prefix}
+	      """
+
+rule calc_even_PCA_rare:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/rare_even_PCA.eigenvec",
+        "output/calculate_PCA/{gwas}/rare_even_PCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL",
+        out_prefix="output/calculate_PCA/{gwas}/rare_even_PCA"
+    threads: 16
+    resources:
+        mem_mb=400000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+	--thin-count 1000000 \
+        --chr 2,4,6,8,10,12,14,16,18,20,22 \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 400000 \
+        --out {params.out_prefix}
+	      """
+
+
+rule calc_R2_even_rare:
+    input:
+        PCs="output/calculate_PCA/{gwas}/rare_odd_PCA.eigenvec",
+        FGr="output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        SNPs="output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        R2="output/calculate_FGr/{dataset}/{gwas}/rare_R2_EO/{contrasts}.txt",
+    resources:
+        mem_mb=38000,
+        time="02:00:00"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    shell:
+        """
+        Rscript code/calculate_FGr/R2_EO.R {input.PCs} {input.FGr} {input.SNPs} {output.R2} {params.r_prefix} {input.pc_snps}
+	      """
+
+rule concat_R2_EO_rare:
+    input:
+        expand("output/calculate_FGr/{{dataset}}/{gwas}/rare_R2_EO/{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS, chr=CHR)
+    output:
+        "plots/error/rare_R2EO_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_R2EO.R {output} {input}
+	      """
+
+###### Compute R2 for even/odd chromosomes - Common + Rare Variants ########
+
+
+rule calc_R2_even_common_rare:
+    input:
+        cPCs="output/calculate_PCA/{gwas}/odd_PCA.eigenvec",
+        rPCs="output/calculate_PCA/{gwas}/rare_odd_PCA.eigenvec",
+        FGr="output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        SNPs="output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt",
+        r=expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr=CHR),
+        pc_snps = "data/ukbb/ukbb_pc_snps_block.txt"
+    output:
+        R2="output/calculate_FGr/{dataset}/{gwas}/common_rare_R2_EO/{contrasts}.txt",
+    resources:
+        mem_mb=38000,
+        time="04:00:00"
+    params:
+        r_prefix="data/{dataset}/r/{gwas}/{contrasts}_chr"
+    shell:
+        """
+        Rscript code/calculate_FGr/R2_EO_both.R {input.cPCs} {input.rPCs} {input.FGr} {input.SNPs} {output.R2} {params.r_prefix} {input.pc_snps}
+	      """
+
+
+rule concat_R2_EO_common_rare:
+    input:
+        expand("output/calculate_FGr/{{dataset}}/{gwas}/common_rare_R2_EO/{contrasts}.txt", gwas=GWAS, contrasts=CONTRASTS, chr=CHR)
+    output:
+        "plots/error/common_rare_R2EO_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_R2EO.R {output} {input}
+	      """
+
+
+##### Auxillary processing for DNA Nexus results #######
+
+rule format_phenotypes:
+    input:
+        "output/phenotypes/participant_metadata_all.csv"
+    output:
+        "output/phenotypes/ukb_phenotypes_QT.txt"
+    shell:
+        """
+        Rscript code/run_GWAS/format_regenie_phenotype.R {input} {output}
+	      """
+
+rule format_covariates_no_PCs:
+    input:
+        "output/phenotypes/participant_covariates_all.csv"
+    output:
+        "output/phenotypes/ukb_covariates_nopcs.txt"
+    shell:
+        """
+        Rscript code/run_GWAS/format_regenie_covars_no_PCs.R {input} {output}
+	      """
+
+rule format_covariates_PCs:
+    input:
+        info = "output/phenotypes/participant_covariates_all.csv",
+        pcs_common = "output/PCA/commonPCA_{gwas}.eigenvec",
+        pcs_rare = "output/PCA/rarePCA_{gwas}.eigenvec"
+    output:
+        "output/phenotypes/ukb_covariates_{gwas}_pcs.txt"
+    shell:
+        """
+        Rscript code/run_GWAS/format_regenie_covars_PCs.R {input.info} {input.pcs_common} {input.pcs_rare} {output}
+	      """
+
+##### Run REGENIE ########
+
+rule run_step_two_LR:
+    input:
+        pvar = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar",
+        pgen = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen",
+        psam = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam",
+        covar = "data/regenie_files/ukb_covariates_{gwas}_{covars}.txt",
+        phenotype = "data/regenie_files/ukb_phenotypes_QT.txt",
+        pred_list = "data/step1-results/{gwas}/{covars}/ukb_step1_QT_pred.list"
+    output:
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Alkaline_Phosphate.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Aspartate_Aminotransferase.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Basophill_Percentage.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Body_Weight.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Cholesterol.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Eosinophill_Percentage.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Glucose.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_HDL.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_HbA1c.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_LDL.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_MCHC.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_MCV.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Platelet_Count.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_SBP.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Standing_Height.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Total_Protein.regenie",
+        "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}_Triglycerides.regenie"
+    params:
+        regenie_prefix = "data/step2-results/{gwas}/{covars}/LR/raw/chr{chr}",
+        plink_prefix = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3"
+    resources:
+        mem_mb=38000,
+        time="24:00:00",
+	threads=8
+    shell:
+        """
+        regenie --step 2 \
+                   --pgen {params.plink_prefix} \
+                   --ref-first \
+                   --ignore-pred \
+                   --phenoFile {input.phenotype} \
+                   --covarFile {input.covar} \
+                   --pThresh 0.01 \
+                   --pred {input.pred_list} \
+                   --bsize 400 \
+		   --threads 8 \
+                   --out {params.regenie_prefix}
+	      """
+
+
+rule run_step_two_LMM:
+    input:
+        pvar = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar",
+        pgen = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen",
+        psam = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam",
+        covar = "data/regenie_files/ukb_covariates_{gwas}_{covars}.txt",
+        phenotype = "data/regenie_files/ukb_phenotypes_QT.txt",
+        pred_list = "data/step1-results/{gwas}/{covars}/ukb_step1_QT_pred.list"
+    output:
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Alkaline_Phosphate.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Aspartate_Aminotransferase.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Basophill_Percentage.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Body_Weight.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Cholesterol.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Eosinophill_Percentage.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Glucose.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_HDL.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_HbA1c.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_LDL.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_MCHC.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_MCV.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Platelet_Count.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_SBP.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Standing_Height.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Total_Protein.regenie",
+        "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}_Triglycerides.regenie"
+    params:
+        regenie_prefix = "data/step2-results/{gwas}/{covars}/LMM/raw/chr{chr}",
+        plink_prefix = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3"
+    resources:
+        mem_mb=38000,
+        time="24:00:00",
+	threads=8
+    shell:
+        """
+        regenie --step 2 \
+                   --pgen {params.plink_prefix} \
+                   --ref-first \
+                   --phenoFile {input.phenotype} \
+                   --covarFile {input.covar} \
+                   --pThresh 0.01 \
+                   --pred {input.pred_list} \
+                   --bsize 400 \
+		   --threads 8\
+                   --out {params.regenie_prefix}
+	      """
+
+
+##### Calc Q ########
+
+
+rule block_snps_for_q:
+    input:
+        snps="data/{dataset}/prs/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}.snps",
+        blocks="data/LD_blocks/big_blocks.bed"
+    output:
+        "data/{dataset}/prs/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}_block.snps"
+    resources:
+        time="02:00:00"
+    shell:
+        """
+        Rscript code/blocks/add_block_info_gwas.R {input.snps} {input.blocks} {output}
+        """
+
+rule pga_test:
+    input:
+        betas="data/{dataset}/prs/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}_block.snps",
+        r = expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr =CHR),
+    output:
+        results="output/pga_test/{dataset}/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}.results"
+    shell:
+        """
+        Rscript code/pga_test/run_test_jacknife.R {input.betas} {output.results} {input.r}
+        """
+
+rule concat_pga_test:
+    input:
+        expand("output/pga_test/{{dataset}}/{{gwas}}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}.results", covars=COVARS, gtype=GTYPE, threshold=THRESHOLD, phenotype=PHENOTYPE, contrasts=CONTRASTS)
+    output:
+        "plots/pga_test/{dataset}/{gwas}/q_results.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_q.R {output} {input}
+	      """
+
+
+##### Downsampling to ascertained SNPs ########
+
+rule resample_snps_for_q:
+    input:
+        target_snps = "data/{dataset}/prs/{gwas}/pcs/{gtype}/{threshold}/{contrasts}/{phenotype}_block.snps",
+        regenie_files = expand(
+            "data/step2-results/{{gwas}}/{{covars}}/{{gtype}}/raw/chr{chr}_{{phenotype}}.regenie",
+            chr=CHR
+        )
+    output:
+        "data/{dataset}/prs_resampled/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}_block.snps"
+    shell:
+        """
+        Rscript code/pga_test/down_sample_snps.R {output} {input.target_snps} {input.regenie_files}
+        """
+
+rule pga_test_resample:
+    input:
+        betas="data/{dataset}/prs_resampled/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}_block.snps",
+        r = expand("data/{{dataset}}/r/{{gwas}}/{{contrasts}}_chr{chr}.rvec", chr =CHR),
+    output:
+        results="output/pga_test_resampled/{dataset}/{gwas}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}.results"
+    shell:
+        """
+        Rscript code/pga_test/run_test_jacknife.R {input.betas} {output.results} {input.r}
+        """
+
+rule concat_pga_test_resample:
+    input:
+        expand("output/pga_test_resampled/{{dataset}}/{{gwas}}/{covars}/{gtype}/{threshold}/{contrasts}/{phenotype}.results", covars=COVARS, gtype=GTYPE, threshold=THRESHOLD, phenotype=PHENOTYPE, contrasts=CONTRASTS)
+    output:
+        "plots/pga_test_resampled/{dataset}/{gwas}/q_results.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_q.R {output} {input}
+	      """
+
+
+## Compare R2 across different combos of chromosomes
+
+rule calc_chr_PCA:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/PCA_{chr}.eigenvec",
+        "output/calculate_PCA/{gwas}/PCA_{chr}.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_pcSNPs_ALL_v3",
+        out_prefix="output/calculate_PCA/{gwas}/PCA_{chr}",
+        chr_range = lambda wildcards: get_chr_range(wildcards.chr)
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="24:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+        --chr {params.chr_range} \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 60000 \
+        --out {params.out_prefix}
+	      """
+
+rule calc_R2_chr:
+    input:
+        PCs="output/calculate_PCA/{gwas}/PCA_{chr}.eigenvec",
+        FGr="output/calculate_FGr/{dataset}/{gwas}/FGrMat_{contrasts}.txt",
+        SNPs="output/calculate_FGr/{dataset}/{gwas}/SNPNum_{contrasts}.txt"
+    output:
+        R2="output/calculate_FGr/{dataset}/{gwas}/R2_chr/{contrasts}_{chr}.txt",
+    shell:
+        """
+        Rscript code/calculate_FGr/R2_chr.R {input.PCs} {input.FGr} {input.SNPs} {output.R2}
+	      """
+
+rule concat_R2_chr:
+    input:
+        expand("output/calculate_FGr/{{dataset}}/{gwas}/R2_chr/{contrasts}_{chr}.txt", gwas=GWAS, contrasts=CONTRASTS, chr=CHR)
+    output:
+        "plots/error/R2Chr_{dataset}.txt"
+    shell:
+        """
+        Rscript code/summarize/concat_R2Chr.R {output} {input}
+	      """

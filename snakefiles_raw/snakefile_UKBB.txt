@@ -1,0 +1,194 @@
+# Snakefile to prep UKBB for analysis
+CHR =["22"]
+#for i in range(1, 23):
+#  CHR.append(str(i))
+#GWAS = ["WBS-R", "ALL-R", "e5", "e10", "e50", "e200", "WBS", "ALL"]
+GWAS = ["WBS", "ALL"]
+
+rule all:
+    input:
+        expand("output/calculate_PCA/{gwas}/rare_even_PCA.eigenvec" ,chr=CHR, gwas=GWAS)
+
+
+## UKBB Genotype data processing
+
+rule UKBB_begen_to_plink2:
+    input:
+        bgen="/gpfs/data/xhe-lab/uk-biobank-genotypes/ukb_imp_chr{chr}_v3.bgen",
+        sample="/gpfs/data/berg-lab/data/ukbb/ukb22828_c22_b0_v3_s487192.sample"
+    output:
+        psam="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam",
+	      pvar="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar",
+	      pgen="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen"
+    params:
+        prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3"
+    threads: 16
+    resources:
+        mem_mb=38000,
+        time="06:00:00"
+    shell:
+        """
+	      plink2 --bgen {input.bgen} ref-first \
+	      --sample {input.sample} \
+	      --mind 0.1 \
+        --geno 0.1 \
+        --maf 0.01 \
+	      --rm-dup exclude-all \
+	      --snps-only \
+	      --max-alleles 2 \
+	      --make-pgen \
+	      --set-all-var-ids @:# \
+	      --threads 16 \
+	      --memory 38000 \
+	      --out {params.prefix}
+	      """
+
+
+rule get_AF_GWAS:
+    input:
+        gwas="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        gwas="data/ukbb/variantFreq/{gwas}_{chr}.afreq"
+    params:
+        prefix_in="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3",
+        prefix_out_gwas="data/ukbb/variantFreq/{gwas}_{chr}"
+    resources:
+        mem_mb=38000,
+        time="00:30:00"
+    shell:
+        """
+        plink2 --pfile {params.prefix_in} \
+        --freq \
+        --keep {input.gwas} \
+	      --threads 8 \
+        --memory 38000 \
+        --out {params.prefix_out_gwas}
+        """
+
+
+## Prep for Rare Variant PCA
+
+rule extract_rare_variants:
+    input:
+        bgen="/gpfs/data/xhe-lab/uk-biobank-genotypes/ukb_imp_chr{chr}_v3.bgen",
+        sample="/gpfs/data/berg-lab/data/ukbb/ukb22828_c22_b0_v3_s487192.sample",
+        ids="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/rare_variants_{chr}.prune.in",
+	"/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/rare_variants_{chr}.psam",
+	"/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/rare_variants_{chr}.pvar",
+	"/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/rare_variants_{chr}.pgen"
+    params:
+        prefix="/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/rare_variants_{chr}"
+    threads: 16
+    resources:
+        mem_mb=38000,
+        time="36:00:00"
+    shell:
+        """
+	      plink2 --bgen {input.bgen} ref-first \
+	      --sample {input.sample} \
+	      --mind 0.1 \
+        --geno 0.1 \
+        --max-maf 0.01 \
+	      --rm-dup exclude-all \
+	      --keep {input.ids} \
+	      --snps-only \
+	      --max-alleles 2 \
+	       --indep-pairwise 1000 80 0.1 \
+	      --make-pgen \
+	      --set-all-var-ids @:# \
+	      --threads 16 \
+	      --memory 38000 \
+	      --out {params.prefix}
+	      """
+
+# Concat chromosomes and extract PCA SNPs
+
+rule concat_chr:
+    input:
+        pgen=expand("/scratch/jgblanc/ukbb/plink2-files/RareVariants/{{gwas}}/rare_variants_{chr}.pgen", chr=CHR),
+        pvar=expand("/scratch/jgblanc/ukbb/plink2-files/RareVariants/{{gwas}}/rare_variants_{chr}.pvar", chr=CHR),
+        psam=expand("/scratch/jgblanc/ukbb/plink2-files/RareVariants/{{gwas}}/rare_variants_{chr}.psam", chr=CHR),
+        snps=expand("/scratch/jgblanc/ukbb/plink2-files/RareVariants/{{gwas}}/rare_variants_{chr}.prune.in", chr=CHR)
+    output:
+        "/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL.pgen",
+        "/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL.pvar",
+        "/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL.psam",
+    params:
+        prefix_out="/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL",
+        merge_prefix=expand("/scratch/jgblanc/ukbb/plink2-files/RareVariants/{{gwas}}/rare_variants_{chr}", chr=CHR, newline="\n")
+    threads: 16
+    resources:
+        mem_mb=60000,
+        time="24:00:00"
+    shell:
+        """
+        cat {input.snps} > snplist_{wildcards.gwas}.txt
+        echo {params.merge_prefix} > tmp_{wildcards.gwas}.txt
+	tr ' ' '\n' < "tmp_{wildcards.gwas}.txt" > "tmp_chr_list_{wildcards.gwas}.txt"
+        plink2 --pmerge-list tmp_chr_list_{wildcards.gwas}.txt \
+        --extract snplist_{wildcards.gwas}.txt \
+	      --threads 16 \
+        --memory 60000 \
+        --make-pgen \
+        --out {params.prefix_out}
+         """
+
+
+rule calc_even_PCA_rare:
+    input:
+        IDs="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        "output/calculate_PCA/{gwas}/rare_even_PCA.eigenvec",
+        "output/calculate_PCA/{gwas}/rare_even_PCA.eigenval"
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/RareVariants/{gwas}/pcSNPs_ALL",
+        out_prefix="output/calculate_PCA/{gwas}/rare_even_PCA"
+    threads: 16
+    resources:
+        mem_mb=400000,
+        time="36:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+	--thin-count 1000000 \
+        --chr 2,4,6,8,10,12,14,16,18,20,22 \
+        --threads 16 \
+        --pca 40 approx \
+        --memory 400000 \
+        --out {params.out_prefix}
+	      """
+
+rule compute_rare_variant_sfs:
+    input:
+        bgen="/gpfs/data/xhe-lab/uk-biobank-genotypes/ukb_imp_chr{chr}_v3.bgen",
+        sample="/gpfs/data/berg-lab/data/ukbb/ukb22828_c22_b0_v3_s487192.sample",
+        ids="data/ids/gwas_ids/{gwas}.txt"
+    output:
+        freq="/scratch/jgblanc/ukbb/sfs/RareVariants/{gwas}/sfs_{chr}.afreq",
+        sfs="/scratch/jgblanc/ukbb/sfs/RareVariants/{gwas}/sfs_{chr}.txt"
+    params:
+        out_prefix="/scratch/jgblanc/ukbb/sfs/RareVariants/{gwas}/sfs_{chr}"
+    threads: 16
+    resources:
+        mem_mb=38000,
+        time="36:00:00"
+    shell:
+        """
+        # Step 1: Compute allele frequencies directly from bgen
+        plink2 --bgen {input.bgen} ref-first \
+               --sample {input.sample} \
+               --keep {input.ids} \
+               --mind 0.1 \
+               --geno 0.1 \
+               --max-maf 0.01 \
+               --rm-dup exclude-all \
+               --snps-only \
+               --max-alleles 2 \
+               --freq counts \
+               --threads {threads} \
+               --memory {resources.mem_mb} \
+               --out {params.out_prefix}
+        """

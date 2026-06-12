@@ -1,0 +1,282 @@
+# Snakefile to prep UKBB for analysis
+CHR = []
+for i in range(1, 23):
+  CHR.append(str(i))
+PCs = ["pcs", "nopcs"]
+GWAS = ["WBS-R", "WBS"]
+
+rule all:
+    input:
+        expand("step_two_LMM_{chr}_{gwas}_{pcs}.txt" ,chr=CHR, gwas=GWAS, pcs=PCs),
+        expand("step_two_LR_{chr}_{gwas}_{pcs}.txt" ,chr=CHR, gwas=GWAS, pcs=PCs)
+
+
+rule make_plink2_files:
+    output:
+        "finished_{chr}.txt"
+    params:
+        plink = "ukb22828_c{chr}_b0_v3"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            --instance-type mem3_ssd1_v2_x16 \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.bgen" \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.sample" \
+            -icmd="plink2 --bgen ukb22828_c{wildcards.chr}_b0_v3.bgen ref-first --sample ukb22828_c{wildcards.chr}_b0_v3.sample --mind 0.1 --geno 0.1 --maf 0.01 --rm-dup exclude-all --snps-only --max-alleles 2 --make-pgen --set-all-var-ids @:#  --threads 16 --memory 38000 --out {params.plink} \"
+            --name plink_chr{wildcards.chr}
+        touch {output}
+        """
+
+
+rule combine_direct_genotype_calls:
+    output:
+        "done.txt"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c1_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c1_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c1_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c2_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c2_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c2_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c3_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c3_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c3_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c4_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c4_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c4_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c5_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c5_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c5_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c6_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c6_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c6_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c7_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c7_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c7_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c8_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c8_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c8_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c9_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c9_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c9_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c10_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c10_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c10_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c11_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c11_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c11_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c12_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c12_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c12_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c13_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c13_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c13_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c14_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c14_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c14_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c15_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c15_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c15_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c16_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c16_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c16_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c17_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c17_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c17_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c18_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c18_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c18_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c19_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c19_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c19_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c20_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c20_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c20_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c21_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c21_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c21_b0_v2.fam" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c22_b0_v2.bed" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c22_b0_v2.bim" \
+            -iin="strat2:/Bulk/Genotype Results/Genotype calls/ukb22418_c22_b0_v2.fam" \
+            -iin="strat2:merge_list_genotypes.txt" \
+            -icmd="plink --bed ukb22418_c1_b0_v2.bed --bim ukb22418_c1_b0_v2.bim --fam ukb22418_c1_b0_v2.fam --merge-list merge_list_genotypes.txt --make-bed --out ukb_cal_allChrs"
+        touch {output}
+        """
+
+
+rule run_qc_pass:
+    output:
+        "qc_pass.txt"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            -iin="strat2:ukb_cal_allChrs.bed" \
+            -iin="strat2:ukb_cal_allChrs.bim" \
+            -iin="strat2:ukb_cal_allChrs.fam" \
+            -icmd="plink2 --bfile ukb_cal_allChrs --maf 0.01 --mac 100 --geno 0.1 --hwe 1e-15 --write-snplist --no-id-header --out qc_pass"
+        touch {output}
+        """
+
+##  Field codes
+# Standing Height: participant.p50_i0
+# Alkaline Phosphate: participant.p30610_i0
+# Aspartate Aminotransferase: participant.p30650_i0
+# Basophil Percentage: participant.p30220_i0
+# Body Weight: participant.p21002_i0
+# Cholesterol: participant.p30690_i0
+# Eosinophill Percentage: participant.p30210_i0
+# Glucose: participant.p30740_i0
+# HbA1c: participant.p30750_i0
+# HDL: participant.p30760_i0
+# LDL: participant.p30780_i0
+# Mean Corpuscular Haemoglobin Concentration (MCHC): participant.p30060_i0
+# Mean Corpuscular Volume (MCV): participant.p30040_i0
+# Platelet Count: participant.p30080_i0
+# Systolic Blood Pressure (SBP): participant.p4080_i0_a0
+# Total Protein: participant.p30860_i0
+# Triglycerides: participant.p30870_i0
+
+rule extract_phenotypes_from_dnanexus:
+    output:
+        "got_phenos.txt"
+    shell:
+        """
+        dx extract_dataset "project-Gzpg2pQJ7337PqF6JfXKP0JK:record-GzpjgY8Jy0vFY3BBv7g06v56" --fields "participant.eid,participant.p50_i0,participant.p30610_i0,participant.p30650_i0,participant.p30220_i0,participant.p21002_i0,participant.p30690_i0,participant.p30210_i0,participant.p30740_i0,participant.p30750_i0,participant.p30760_i0,participant.p30780_i0,participant.p30060_i0,participant.p30040_i0,participant.p30080_i0,participant.p4080_i0_a0,participant.p30860_i0,participant.p30870_i0" -o participant_metadata_all.csv
+        touch {output}
+        """
+
+
+##  Field codes
+# Age at recruitment: participant.p21022
+# Genetic Sex: participant.p22001
+# Genotype Measurement Batch: participant.p22000
+
+rule extract_covariates_from_dnanexus:
+    output:
+        "got_covars.txt"
+    shell:
+        """
+        dx extract_dataset "project-Gzpg2pQJ7337PqF6JfXKP0JK:record-GzpjgY8Jy0vFY3BBv7g06v56" --fields "participant.eid,participant.p21022,participant.p22001,participant.p22000" -o participant_covariates_all.csv
+        touch {output}
+        """
+
+
+rule run_step_one:
+    output:
+        "step_one_{gwas}_{pcs}.txt"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            --instance-type mem3_ssd1_v2_x16 \
+            -iin="strat2:ukb_cal_allChrs.bed" \
+            -iin="strat2:ukb_cal_allChrs.bim" \
+            -iin="strat2:ukb_cal_allChrs.fam" \
+            -iin="strat2:qc_pass.snplist" \
+            -iin="strat2:{wildcards.gwas}.txt" \
+            -iin="strat2:ukb_phenotypes_QT.txt" \
+            -iin="strat2:ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt" \
+            -icmd="mkdir -p step1-results/{wildcards.gwas}/{wildcards.pcs} && \
+                   regenie --step 1 \
+                   --bed ukb_cal_allChrs \
+                   --extract qc_pass.snplist \
+                   --keep {wildcards.gwas}.txt \
+                   --phenoFile ukb_phenotypes_QT.txt \
+                   --covarFile ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt \
+                   --bsize 1000 \
+                   --lowmem \
+                   --lowmem-prefix regenie_tmp_preds_{wildcards.gwas}_{wildcards.pcs} \
+                   --out step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT && \
+                   dx upload step1-results/{wildcards.gwas}/{wildcards.pcs} --recursive --destination step1-results/{wildcards.gwas}/{wildcards.pcs}" && \
+        touch {output}
+        """
+
+
+rule run_step_two_LMM:
+    output:
+        "step_two_LMM_{chr}_{gwas}_{pcs}.txt"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.bgen" \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.sample" \
+            -iin="strat2:ukb_phenotypes_QT.txt" \
+            -iin="strat2:ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_pred.list" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_1.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_2.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_3.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_4.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_5.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_6.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_7.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_8.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_9.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_10.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_11.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_12.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_13.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_14.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_15.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_16.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_17.loco" \
+            -icmd="mkdir -p step2-results/LMM/{wildcards.gwas}/{wildcards.pcs} && \
+                   regenie --step 2 \
+                   --bgen ukb22828_c{wildcards.chr}_b0_v3.bgen \
+                   --ref-first \
+                   --sample ukb22828_c{wildcards.chr}_b0_v3.sample \
+                   --phenoFile ukb_phenotypes_QT.txt \
+                   --covarFile ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt \
+                   --pThresh 0.01 \
+                   --pred ukb_step1_QT_pred.list \
+                   --bsize 400 \
+                   --out step2-results/LMM/{wildcards.gwas}/{wildcards.pcs}/chr{wildcards.chr} && \
+                   dx upload step2-results/LMM/{wildcards.gwas}/{wildcards.pcs} --recursive --destination step2-results/LMM/{wildcards.gwas}/{wildcards.pcs}" && \
+        touch {output}
+        """
+
+
+rule run_step_two_LR:
+    output:
+        "step_two_LR_{chr}_{gwas}_{pcs}.txt"
+    shell:
+        """
+        dx run app-swiss-army-knife -y --wait \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.bgen" \
+            -iin="strat2:/Bulk/Imputation/UKB imputation from genotype/ukb22828_c{wildcards.chr}_b0_v3.sample" \
+            -iin="strat2:ukb_phenotypes_QT.txt" \
+            -iin="strat2:ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_pred.list" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_1.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_2.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_3.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_4.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_5.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_6.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_7.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_8.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_9.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_10.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_11.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_12.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_13.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_14.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_15.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_16.loco" \
+            -iin="strat2:step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_17.loco" \
+            -icmd="mkdir -p step2-results/LR/{wildcards.gwas}/{wildcards.pcs} && \
+                   regenie --step 2 \
+                   --bgen ukb22828_c{wildcards.chr}_b0_v3.bgen \
+                   --ref-first \
+                   --ignore-pred \
+                   --sample ukb22828_c{wildcards.chr}_b0_v3.sample \
+                   --phenoFile ukb_phenotypes_QT.txt \
+                   --covarFile ukb_covariates_{wildcards.gwas}_{wildcards.pcs}.txt \
+                   --pThresh 0.01 \
+                   --pred step1-results/{wildcards.gwas}/{wildcards.pcs}/ukb_step1_QT_pred.list \
+                   --bsize 400 \
+                   --out step2-results/LR/{wildcards.gwas}/{wildcards.pcs}/chr{wildcards.chr} && \
+                   dx upload step2-results/LR/{wildcards.gwas}/{wildcards.pcs} --recursive --destination step2-results/LR/{wildcards.gwas}/{wildcards.pcs}" && \
+        touch {output}
+        """

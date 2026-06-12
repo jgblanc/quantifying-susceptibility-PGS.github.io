@@ -1,0 +1,296 @@
+# Snakefile to do the pre-data processing for the Test Example
+CHR =[]
+for i in range(1, 23):
+  CHR.append(str(i))
+CONTRASTS = ["England-NorthernIreland", "England-RepublicOfIrelend", "England-Scotland", "England-Wales", "NorthernIreland-RepublicOfIrelend", "NorthernIreland-Scotland", "NorthernIreland-Wales", "RepublicOfIrelend-Scotland", "RepublicOfIrelend-Wales", "Scotland-Wales"]
+GWAS=["WBS-R", "ALL-R", "e5", "e10", "e50", "e200"]
+COVARS = ["pcs", "nopcs"]
+PHENOTYPE = ["Alkaline_Phosphate", "Aspartate_Aminotransferase", "Basophill_Percentage", "Body_Weight", "Cholesterol", "Eosinophill_Percentage", "Glucose", "HbA1c", "HDL", "LDL", "MCHC","MCV", "Platelet_Count", "SBP", "Standing_Height", "Total_Protein", "Triglycerides"]
+#PHENOTYPE = ["Standing_Height"]
+GTYPE = ["LR", "LMM"]
+THRESHOLD = ["loose", "strict"]
+
+rule all:
+    input:
+        expand("data/InUKBB/r/{gwas}/England-RepublicOfIrelend_chr{chr}.rvec", chr=CHR, gwas=GWAS, contrasts=CONTRASTS, covars=COVARS, phenotype=PHENOTYPE,gtype=GTYPE, threshold=THRESHOLD)
+localrules: format_regenie_results_loose, format_regenie_results_strict, combine_clumps, combine_clumps_betas
+
+
+## Get overlapping SNPs for each subdataset
+
+# Get allele freq in test panel
+
+rule get_AF_Test:
+    input:
+        test="data/InUKBB/ids/test_ids/CountryOfBirthUK.txt"
+    output:
+        test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}.afreq"
+    params:
+        prefix_in="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3",
+        prefix_out_test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}"
+    resources:
+        mem_mb=38000,
+        time="00:30:00"
+    shell:
+        """
+        plink2 --pfile {params.prefix_in} \
+        --freq \
+	--maf 0.01 \
+        --keep {input.test} \
+	      --threads 8 \
+        --memory 38000 \
+        --out {params.prefix_out_test}
+        """
+
+# Get overlapping SNPs
+
+rule get_overlapping_snps:
+    input:
+        freq_test="data/InUKBB/variantFreq/CountryOfBirthUK_{chr}.afreq",
+	      freq_gwas="data/ukbb/variantFreq/{gwas}_{chr}.afreq"
+    output:
+        "data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    shell:
+        """
+        Rscript code/InUKBB/overlapping_snps.R {input.freq_gwas} {input.freq_test} {output}
+        """
+
+rule make_test_vectors:
+    input:
+        "data/InUKBB/ids/test_ids/CountryOfBirthUK.txt"
+    output:
+        p1="data/InUKBB/TestVecs/England-NorthernIreland.txt",
+        p2="data/InUKBB/TestVecs/England-RepublicOfIrelend.txt",
+        p3="data/InUKBB/TestVecs/England-Scotland.txt",
+        p4="data/InUKBB/TestVecs/England-Wales.txt",
+        p5="data/InUKBB/TestVecs/NorthernIreland-RepublicOfIrelend.txt",
+        p6="data/InUKBB/TestVecs/NorthernIreland-Scotland.txt",
+        p7="data/InUKBB/TestVecs/NorthernIreland-Wales.txt",
+        p8="data/InUKBB/TestVecs/RepublicOfIrelend-Scotland.txt",
+        p9="data/InUKBB/TestVecs/RepublicOfIrelend-Wales.txt",
+        p10="data/InUKBB/TestVecs/Scotland-Wales.txt"
+    shell:
+        """
+        Rscript code/InUKBB/get_Tvec.R {output.p1} {output.p2} {output.p3} {output.p4} {output.p5} {output.p6} {output.p7} {output.p8} {output.p9} {output.p10} {input}
+        """
+
+rule compute_r:
+    input:
+        p1="data/InUKBB/TestVecs/England-NorthernIreland.txt",
+        p2="data/InUKBB/TestVecs/England-RepublicOfIrelend.txt",
+        p3="data/InUKBB/TestVecs/England-Scotland.txt",
+        p4="data/InUKBB/TestVecs/England-Wales.txt",
+        p5="data/InUKBB/TestVecs/NorthernIreland-RepublicOfIrelend.txt",
+        p6="data/InUKBB/TestVecs/NorthernIreland-Scotland.txt",
+        p7="data/InUKBB/TestVecs/NorthernIreland-Wales.txt",
+        p8="data/InUKBB/TestVecs/RepublicOfIrelend-Scotland.txt",
+        p9="data/InUKBB/TestVecs/RepublicOfIrelend-Wales.txt",
+        p10="data/InUKBB/TestVecs/Scotland-Wales.txt",
+        SNPs="data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1 = "data/InUKBB/r/{gwas}/England-NorthernIreland_chr{chr}.rvec",
+        p2 = "data/InUKBB/r/{gwas}/England-RepublicOfIrelend_chr{chr}.rvec",
+        p3 = "data/InUKBB/r/{gwas}/England-Scotland_chr{chr}.rvec",
+        p4 = "data/InUKBB/r/{gwas}/England-Wales_chr{chr}.rvec",
+        p5 = "data/InUKBB/r/{gwas}/NorthernIreland-RepublicOfIrelend_chr{chr}.rvec",
+        p6 = "data/InUKBB/r/{gwas}/NorthernIreland-Scotland_chr{chr}.rvec",
+        p7 = "data/InUKBB/r/{gwas}/NorthernIreland-Wales_chr{chr}.rvec",
+        p8 = "data/InUKBB/r/{gwas}/RepublicOfIrelend-Scotland_chr{chr}.rvec",
+        p9 = "data/InUKBB/r/{gwas}/RepublicOfIrelend-Wales_chr{chr}.rvec",
+        p10 = "data/InUKBB/r/{gwas}/Scotland-Wales_chr{chr}.rvec"
+    resources:
+        mem_mb=38000,
+        time="02:00:00"	
+    params:
+        prefix_in="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3"
+    shell:
+        """
+        Rscript code/InUKBB/get_contrasts.R {input.SNPs} {params.prefix_in} {input.p1} {input.p2} {input.p3} {input.p4} {input.p5} {input.p6} {input.p7} {input.p8} {input.p9} {input.p10} {output.p1} {output.p2} {output.p3} {output.p4} {output.p5} {output.p6} {output.p7} {output.p8} {output.p9} {output.p10}
+        """
+
+rule rename_overlap_snps_all:
+    input:
+        "data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    output:
+        p1="data/InUKBB/variants/{gwas}/England-NorthernIreland/overlappingSNPs_chr{chr}.txt",
+        p2="data/InUKBB/variants/{gwas}/England-RepublicOfIrelend/overlappingSNPs_chr{chr}.txt",
+        p3="data/InUKBB/variants/{gwas}/England-Scotland/overlappingSNPs_chr{chr}.txt",
+        p4="data/InUKBB/variants/{gwas}/England-Wales/overlappingSNPs_chr{chr}.txt",
+        p5="data/InUKBB/variants/{gwas}/NorthernIreland-RepublicOfIrelend/overlappingSNPs_chr{chr}.txt",
+        p6="data/InUKBB/variants/{gwas}/NorthernIreland-Scotland/overlappingSNPs_chr{chr}.txt",
+        p7="data/InUKBB/variants/{gwas}/NorthernIreland-Wales/overlappingSNPs_chr{chr}.txt",
+        p8="data/InUKBB/variants/{gwas}/RepublicOfIrelend-Scotland/overlappingSNPs_chr{chr}.txt",
+        p9="data/InUKBB/variants/{gwas}/RepublicOfIrelend-Wales/overlappingSNPs_chr{chr}.txt",
+        p10="data/InUKBB/variants/{gwas}/Scotland-Wales/overlappingSNPs_chr{chr}.txt",
+    shell:
+        """
+        cp {input} {output.p1}
+        cp {input} {output.p2}
+        cp {input} {output.p3}
+        cp {input} {output.p4}
+        cp {input} {output.p5}
+        cp {input} {output.p6}
+        cp {input} {output.p7}
+        cp {input} {output.p8}
+        cp {input} {output.p9}
+        cp {input} {output.p10}
+	rm {input}
+        """
+
+
+#############################################################################################
+
+
+## Clump Regenie Results
+
+rule format_regenie_results_loose:
+    input:
+        ss="data/step2-results/{gwas}/{covars}/{gtype}/raw/chr{chr}_{phenotype}.regenie",
+    output:
+        temp("data/step2-results/{gwas}/{covars}/{gtype}/formatted/loose/chr{chr}_{phenotype}.regenie")
+    shell:
+        """
+        awk 'NR==1 || $13 >= 2.30103' {input.ss} > {output}
+	      """
+
+rule format_regenie_results_strict:
+    input:
+        ss="data/step2-results/{gwas}/{covars}/{gtype}/raw/chr{chr}_{phenotype}.regenie",
+    output:
+        temp("data/step2-results/{gwas}/{covars}/{gtype}/formatted/strict/chr{chr}_{phenotype}.regenie")
+    shell:
+        """
+        awk 'NR==1 || $13 >= 7.30103' {input.ss} > {output}
+	      """
+
+rule clump_regenie_results:
+    input:
+        ss="data/step2-results/{gwas}/{covars}/{gtype}/formatted/{threshold}/chr{chr}_{phenotype}.regenie",
+        pvar = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar",
+        psam = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam",
+        pgen = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen",
+        IDs = "data/ids/gwas_ids/{gwas}.txt",
+        SNPs = "data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt"
+    output:
+        temp("data/step2-results/{gwas}/{covars}/{gtype}/clumped/{threshold}/{phenotype}_chr{chr}.clumps"),
+	temp("data/step2-results/{gwas}/{covars}/{gtype}/clumped/{threshold}/{phenotype}_chr{chr}.clumps.missing_id"),
+	temp("data/step2-results/{gwas}/{covars}/{gtype}/clumped/{threshold}/{phenotype}_chr{chr}.log")
+    params:
+        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3",
+        out_prefix="data/step2-results/{gwas}/{covars}/{gtype}/clumped/{threshold}/{phenotype}_chr{chr}"
+    threads: 8
+    resources:
+        mem_mb=38000,
+        time="06:00:00"
+    shell:
+        """
+        plink2 --pfile {params.plink_prefix} \
+        --keep {input.IDs} \
+	--clump {input.ss} \
+	--clump-p1 0.05 \
+        --clump-r2 0.1 \
+	--clump-p2 0.05 \
+        --clump-kb 1000 \
+	--clump-log10 \
+	--clump-p-field LOG10P \
+	--threads 8 \
+	--memory 38000 \
+	--extract {input.SNPs} \
+        --out {params.out_prefix}
+	touch {output}
+	"""
+
+
+rule combine_clumps_betas:
+    input:
+        clumps = "data/step2-results/{gwas}/{covars}/{gtype}/clumped/{threshold}/{phenotype}_chr{chr}.clumps",
+        betas = "data/step2-results/{gwas}/{covars}/{gtype}/formatted/{threshold}/chr{chr}_{phenotype}.regenie"
+    output:
+        temp("data/step2-results/{gwas}/{covars}/{gtype}/betas/{threshold}/{phenotype}_chr{chr}.betas")
+    shell:
+        """
+        Rscript code/run_gwas/format_clumps.R {input.clumps} {input.betas} {output}
+	touch {output}
+	"""
+
+rule combine_clumps:
+    input:
+        expand("data/step2-results/{{gwas}}/{{covars}}/{{gtype}}/betas/{{threshold}}/{{phenotype}}_chr{chr}.betas", chr=CHR)
+    output:
+        "data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/{phenotype}.snps"
+    shell:
+        """
+        awk 'FNR == 1 && NR != 1 {{ next }} {{ print }}' {input} > {output}
+        """
+
+rule rename_clumped_snps:
+    input:
+        "data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/{phenotype}.snps"
+    output:
+        p1="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/England-NorthernIreland/{phenotype}.snps",
+        p2="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/England-RepublicOfIrelend/{phenotype}.snps",
+        p3="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/England-Scotland/{phenotype}.snps",
+        p4="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/England-Wales/{phenotype}.snps",
+        p5="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/NorthernIreland-RepublicOfIrelend/{phenotype}.snps",
+        p6="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/NorthernIreland-Scotland/{phenotype}.snps",
+        p7="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/NorthernIreland-Wales/{phenotype}.snps",
+        p8="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/RepublicOfIrelend-Scotland/{phenotype}.snps",
+        p9="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/RepublicOfIrelend-Wales/{phenotype}.snps",
+        p10="data/InUKBB/prs/{gwas}/{covars}/{gtype}/{threshold}/Scotland-Wales/{phenotype}.snps",
+    shell:
+        """
+        cp {input} {output.p1}
+        cp {input} {output.p2}
+        cp {input} {output.p3}
+        cp {input} {output.p4}
+        cp {input} {output.p5}
+        cp {input} {output.p6}
+        cp {input} {output.p7}
+        cp {input} {output.p8}
+        cp {input} {output.p9}
+        cp {input} {output.p10}
+	rm {input}
+        """
+
+
+
+
+#rule format_regenie_results:
+#    input:
+#        ss="data/step2-results/{gwas}/{covars}/{gtype}/raw/chr{chr}_{pheno}.regenie",
+#        snps ="data/InUKBB/variants/{gwas}/overlappingSNPs_chr{chr}.txt",
+#        pvar = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar"
+#    output:
+#        "data/step2-results/{gwas}/{covars}/{gtype}/formatted/{pheno}_chr{chr}.regenie"
+#    shell:
+#        """
+#        Rscript code/run_gwas/format_regenie_SS.R {input.ss} {input.snps} {input.pvar} {output}
+#	      """
+
+#rule clump_regenie_results:
+#    input:
+#        ss="data/step2-results/{gwas}/{covars}/{gtype}/formatted/{pheno}_chr{chr}.regenie",
+#        pvar = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pvar",
+#        psam = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.psam",
+#        pgen = "/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3.pgen",
+#        IDs = "data/ids/gwas_ids/{gwas}.txt"
+#    output:
+#        "data/step2-results/{gwas}/{covars}/{gtype}/clumped/{pheno}_chr{chr}.clumps"
+#    params:
+#        plink_prefix="/scratch/jgblanc/ukbb/plink2-files/ALL/ukb_imp_chr{chr}_v3",
+#        out_prefix="data/step2-results/{gwas}/{covars}/{gtype}/clumped/{pheno}_chr{chr}"
+#    shell:
+#        """
+#        plink2 --pfile {params.plink_prefix} \
+#        --keep {input.IDs} \
+#	      --clump {input.ss} \
+#        --clump-p1 0.05 \
+#        --clump-p2 1 \
+#        --clump-r2 0.1 \
+#        --clump-kb 250 \
+#	--clump-log10 \
+#        --out {params.out_prefix}
+#	      """
+
+
+
