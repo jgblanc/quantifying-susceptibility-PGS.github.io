@@ -180,19 +180,3 @@ dfOut <- inner_join(dfSNPs, dfSS) %>%
 
 These harmonized summary statistics are the input to the clumping-and-thresholding step on the [next page](06-pgs-association-tests).
 
----
-
-## Scripts to copy into the website repo
-
-To make the script links on this page resolve, copy the following files from the [original code repository](https://github.com/jgblanc/strat2) into the website repo, preserving the subfolder layout:
-
-| Copy from `strat2` | To website repo |
-|--------------------|-----------------|
-| `code/run_gwas/format_regenie_phenotype.R` | `scripts/run_gwas/format_regenie_phenotype.R` |
-| `code/run_gwas/format_regenie_covars_no_PCs.R` | `scripts/run_gwas/format_regenie_covars_no_PCs.R` |
-| `code/run_gwas/format_regenie_covars_PCs.R` | `scripts/run_gwas/format_regenie_covars_PCs.R` |
-| `code/run_gwas/format_regenie_SS.R` | `scripts/run_gwas/format_regenie_SS.R` |
-
-> **Note on the directory name.** The scripts live in `code/run_gwas/` (lowercase) in the repository, but the `snakefile_main` rules call them as `code/run_GWAS/...` (capitalized). On a case-sensitive filesystem (e.g. the Linux HPC cluster) this mismatch will break the rule — rename one or the other so they agree. I've used the lowercase `run_gwas/` path in the copy table above to match what's actually in the repo.
-
-> **Note on regenie step 1.** The step-1 rule shown above is adapted from `run_step_one` in `snakefile_DNANexus`, reformatted as a plain Snakemake rule (the DNANexus `dx run`/`dx upload` wrapping and file-staging removed). It also depends on two upstream prep steps from that snakefile — merging the per-chromosome genotype calls into `ukb_cal_allChrs` and writing `qc_pass.snplist` (the `--maf 0.01 --mac 100 --geno 0.1 --hwe 1e-15` QC pass) — which you'd similarly need to reformat if you want them documented here.
