@@ -104,7 +104,7 @@ rule calc_HPrime_Jacknife:
         """
 ```
 
-The estimator forms $\hat{H}' = \hat{\sigma}_{f'}^2 \cdot \hat{\sigma}_{r}^2$ and applies the same one-sided block-jackknife test against the detection limit $1/L$ described on the [uncorrected page](02-uncorrected-susceptibility):
+The estimator forms $\hat{H}' = \hat{\sigma}\_{f'}^2 \cdot \hat{\sigma}_{r}^2$ and applies the same one-sided block-jackknife test against the detection limit $1/L$ described on the [uncorrected page](02-uncorrected-susceptibility):
 
 ```r
 pvalNorm <- pnorm(H, mean = 1/L, sd = sqrt(varH), lower.tail = FALSE)
