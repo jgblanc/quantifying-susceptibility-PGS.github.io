@@ -149,14 +149,3 @@ The `calc_even_PCA`, `calc_odd_PCA_rare`, and `calc_even_PCA_rare` rules are ide
 
 As a further diagnostic, we also estimate PCs from *cumulative* chromosome subsets (chromosome 1, then 1–2, then 1–3, …) to see how quickly captured variance saturates with genomic breadth. This is handled by [`calc_PCA_chr.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_PCA/calc_PCA_chr.R), which loops plink2 over growing chromosome ranges.
 
----
-
-## Scripts to copy into the website repo
-
-Most PCA steps call plink2 directly inside the Snakemake rules, so only the cumulative-chromosome diagnostic needs an R script:
-
-| Copy from `strat2` | To website repo |
-|--------------------|-----------------|
-| `code/calculate_PCA/calc_PCA_chr.R` | `scripts/calculate_PCA/calc_PCA_chr.R` |
-
-> **Note.** The rare-variant preparation rules (`extract_rare_variants`, `concat_chr`, the rare PCA rule) live in `snakefile_UKBB`, while the common-variant and even/odd PCA rules live in `snakefile_main2`. The rule names above match those snakefiles; the rule I've labeled `calc_PCA_rare` corresponds to `calc_even_PCA_rare`/`calc_odd_PCA_rare` for the half-genome splits — adjust to a full-genome rare PCA rule if you compute one for the correction covariates directly.
