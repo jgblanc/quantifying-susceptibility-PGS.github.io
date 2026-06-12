@@ -227,6 +227,8 @@ pvalNorm <- pnorm(H, mean = 1/L, sd = sqrt(varH), lower.tail = FALSE)
 
 The output table records $\hat{H}$, $L$, the jackknife variance, the one-sided $p$-value against $1/L$, and the component variances $\hat{\sigma}_{r}^2$ and $\hat{\sigma}_f^2$. Across the analyses, results for each contrast are concatenated into `plots/overlap_stats/H_{dataset}.txt` via `concat_OverlapStats.R`.
 
+![Figure 1: $\hat{H}$ for all contrasts](../assets/images/H.png)
+
 ---
 
 ## Sensitivity to LD and SNP number
@@ -245,5 +247,7 @@ dfALL  <- rbind(dftmp2, dftmp3)
 ```
 
 Decreasing $L$ raises the physical distance between adjacent sites (reducing $\rho$) but also raises the noise floor $1/L$. As expected for a weak signal, reducing $L$ eventually dissolves the signal in the most homogeneous panels — confirming that the estimates there sit near the detection limit rather than reflecting strong residual structure.
+
+![SNP number vs. $\hat{H}$ for the eas-sas contrast](../assets/images/SupH.png)
 
 
