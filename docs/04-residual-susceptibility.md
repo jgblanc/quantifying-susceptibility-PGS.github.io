@@ -27,7 +27,7 @@ $$V_K = 1 - \frac{H'}{H} = 1 - \frac{\sigma_{f'}^2}{\sigma_f^2}.$$
 The key efficiency in the pipeline is that we never re-project residualized genotypes from scratch. Instead, we residualize the **per-block projection matrix** computed for $H$ on the [previous page](02-uncorrected-susceptibility): because projection onto the contrast is linear, residualizing each block's score against the PCs is equivalent to projecting PC-corrected genotypes. We then reuse the *same* $\hat{H}$ estimator on the residualized matrix.
 
 1. **Residualize the FGr matrix against the PCs.** Each block column of the projection matrix is regressed on the principal components and replaced by the residuals, yielding the corrected matrix used for $f'$. To avoid overfitting, blocks on each chromosome are residualized against PCs estimated from the *opposite* half of the genome (odd vs. even chromosomes).
-2. **Estimate $H'$.** Run the same `calc_H.R` estimator on the residualized matrix to form $\hat{H}' = \hat{\sigma}_{f'}^2 \cdot \hat{\sigma}_{r}^2$, tested against the noise floor $1/L$ with a block jackknife.
+2. **Estimate $H'$.** Run the same `calc_H.R` estimator on the residualized matrix to form $\hat{H}' = \hat{\sigma}\_{f'}^2 \cdot \hat{\sigma}_{r}^2$, tested against the noise floor $1/L$ with a block jackknife.
 3. **Estimate efficacy $V_K$.** Using an even/odd cross-validation scheme, compute the noise-corrected fraction of target-axis variance captured by the top $K$ common, rare, or combined PCs.
 
 ---
