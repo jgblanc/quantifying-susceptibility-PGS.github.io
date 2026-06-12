@@ -3,7 +3,7 @@ layout: default
 title: PCA Correction
 ---
 
-<a href="{{ '/' | relative_url }}" class="btn">← Back to Home</a>
+[← Back to Home]({{ '/' | relative_url }})
 
 # PCA Correction
 
