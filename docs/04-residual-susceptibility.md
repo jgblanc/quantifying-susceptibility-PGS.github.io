@@ -112,16 +112,8 @@ pvalNorm <- pnorm(H, mean = 1/L, sd = sqrt(varH), lower.tail = FALSE)
 
 Because $\hat{H}'$ is typically driven down close to the detection limit, a non-significant result indicates only that residual structure is *below the noise floor* — not that it is exactly zero. Results across contrasts are concatenated into `plots/overlap_stats/HPrime_{dataset}.txt`.
 
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: paper Fig. 4 — H' after correction across the six panels,
-showing that correction flattens the disparity between diverse and
-homogeneous panels (uncorrected H shown as semi-transparent points,
-dashed line = 1/L detection limit).
-Export to assets/images/ and fill in the filename + caption.
+![Residual susceptibility H' across GWAS panels](../assets/images/HPrime.png)
 
-![Residual susceptibility H' across GWAS panels](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
 
 ---
 
@@ -171,29 +163,7 @@ for (i in seq_len(ncol(PC_nums))) {
 
 The same step is run with rare PCs (`calc_R2_even_rare`, also via `R2_EO.R`) and with common + rare PCs jointly (`calc_R2_even_common_rare`, via `R2_EO_both.R`), letting us compare how much additional structure rare variants capture beyond common ones.
 
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: paper Fig. 3 — V_K (fraction of target-axis variance captured)
-for common, rare, and combined PCs, and the cumulative V_K across PC index.
-Export to assets/images/ and fill in the filename + caption.
+![Fraction of target-axis variance captured by common and rare PCs](../assets/images/PC_Fig.png)
 
-![Fraction of target-axis variance captured by common and rare PCs](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
 
----
-
-## Scripts to copy into the website repo
-
-To make the script links on this page resolve, copy the following files from the [original code repository](https://github.com/jgblanc/strat2) into the website repo, preserving the subfolder layout:
-
-| Copy from `strat2` | To website repo |
-|--------------------|-----------------|
-| `code/calculate_FGr/calc_GR_prime.R` | `scripts/calculate_FGr/calc_GR_prime.R` |
-| `code/calculate_H/calc_H.R` | `scripts/calculate_H/calc_H.R` |
-| `code/calculate_FGr/R2_EO.R` | `scripts/calculate_FGr/R2_EO.R` |
-| `code/calculate_FGr/R2_EO_both.R` | `scripts/calculate_FGr/R2_EO_both.R` |
-
-> **Note.** $H$ and $H'$ use the **same** estimator, `code/calculate_H/calc_H.R` — the only difference is whether the input projection matrix is `FGrMat` (uncorrected) or `FGrMatPrime` (PC-residualized). So the file you copy for page 02 is the same one this page links to; you don't need a separate copy.
-
-> **Reminder.** As elsewhere, inline math underscores (e.g. `$\sigma_{f'}^2$`) need the same kramdown fix you applied earlier; the display equations (`$$ … $$` on their own lines) render fine as-is.
 
