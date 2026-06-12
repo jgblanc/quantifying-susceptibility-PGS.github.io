@@ -27,7 +27,7 @@ $$V_K = 1 - \frac{H'}{H} = 1 - \frac{\sigma_{f'}^2}{\sigma_f^2}.$$
 We estimate $H'$ and $V_K$ in three pieces:
 
 1. **Residualize the genotypes against the PCs.** Each SNP's dosages are regressed on the principal components and replaced by the residuals, yielding $G'$. To avoid overfitting, SNPs on each chromosome are residualized against PCs estimated from the *opposite* half of the genome (odd vs. even chromosomes).
-2. **Estimate $H'$.** We project the residualized genotypes onto the contrast $\hat{r}$, form $\hat{H}' = \hat{\sigma}_{f'}^2 \cdot \hat{\sigma}_{r}^2$, and test it against the same noise floor $1/L$ using a block jackknife.
+2. **Estimate $H'$.** We project the residualized genotypes onto the contrast $\hat{r}$, form $\hat{H}' = \hat{\sigma}\_{f'}^2 \cdot \hat{\sigma}_{r}^2$, and test it against the same noise floor $1/L$ using a block jackknife.
 3. **Estimate efficacy $V_K$.** Using an even/odd cross-validation scheme, we compute the noise-corrected fraction of target-axis variance captured by the top $K$ common, rare, or combined PCs.
 
 ---
