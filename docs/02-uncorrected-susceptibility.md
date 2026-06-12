@@ -3,6 +3,8 @@ layout: default
 title: Uncorrected Susceptibility
 ---
 
+<a href="{{ '/' | relative_url }}" class="btn">← Back to Home</a>
+
 # Uncorrected Susceptibility
 
 Once we have the allele frequency contrast $\hat{r}$ for a given prediction-panel axis (see [Genotype Contrasts](01-genotype-contrasts)), we can ask how much of the genetic variation in the GWAS panel is aligned with that axis. This is the **uncorrected susceptibility**, $H$ — our baseline measure of how exposed a polygenic score is to stratification along the target gradient, before any correction for population structure.
