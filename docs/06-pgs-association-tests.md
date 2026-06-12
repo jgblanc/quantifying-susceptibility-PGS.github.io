@@ -152,16 +152,8 @@ q    <- calc_q(df) / sqrt(sigma2)   # standardized q-hat
 
 Results are concatenated across all configurations into `plots/pga_test/{dataset}/{gwas}/q_results.txt` via `concat_q.R`.
 
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: paper Fig. 5 — standardized squared test statistics
-(q-hat^2 / sigma_q^2) vs. uncorrected susceptibility H, showing how
-PC correction breaks the relationship and how ascertainment amplifies
-bias in the uncorrected models.
-Export to assets/images/ and fill in the filename + caption.
-
-![Standardized PGS test statistics versus susceptibility](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
+![Standardized PGS test statistics versus susceptibility](../assets/images/ConfoundingFig.png)
+Standardized PGS test statistics versus susceptibility
 
 ---
 
@@ -192,29 +184,7 @@ rule resample_snps_for_q:
 
 The resampled SNP set is then run through the same `run_test_jacknife.R` (rule `pga_test_resample`) and concatenated into `plots/pga_test_resampled/{dataset}/{gwas}/q_results.txt`. Comparing the standard and resampled results shows how much of the bias is driven by ascertainment versus estimation.
 
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: paper Fig. 6 — significant PGS-ancestry associations in the
-ALL panel (standardized q-hat for each significant contrast/phenotype
-pair, uncorrected vs. PC-corrected).
-Export to assets/images/ and fill in the filename + caption.
 
-![Significant polygenic score-ancestry associations](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
+![Significant polygenic score-ancestry associations](../assets/images/SigFig.png)
 
----
-
-## Scripts to copy into the website repo
-
-To make the script links on this page resolve, copy the following files from the [original code repository](https://github.com/jgblanc/strat2) into the website repo, preserving the subfolder layout:
-
-| Copy from `strat2` | To website repo |
-|--------------------|-----------------|
-| `code/run_gwas/format_clumps.R` | `scripts/run_gwas/format_clumps.R` |
-| `code/blocks/add_block_info_gwas.R` | `scripts/blocks/add_block_info_gwas.R` |
-| `code/pga_test/run_test_jacknife.R` | `scripts/pga_test/run_test_jacknife.R` |
-| `code/pga_test/down_sample_snps.R` | `scripts/pga_test/down_sample_snps.R` |
-
-> **Note on where the rules live.** Step 1 (thresholding, clumping, `format_clumps.R`) is in the dataset-specific snakefiles `snakefile_HGDP1KG` and `snakefile_InUKBB`; `snakefile_main` picks up at Step 2 (`block_snps_for_q`), taking the `.snps` files as given. The two dataset snakefiles share the same clumping logic — the main difference is that `snakefile_HGDP1KG` carries an extra `{subdataset}` wildcard (e.g. `all`, `nfe`, `eurasia`, `nfe_no_ceu`) and fans the result out to each contrast.
-
-> **Reminder.** As elsewhere, inline math underscores (e.g. `$\hat{q}/\hat{\sigma}_q$`) need the same kramdown fix you applied earlier; the display equations (`$$ … $$` on their own lines) render fine as-is.
+Significant polygenic score-ancestry associations
