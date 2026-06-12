@@ -3,7 +3,7 @@ layout: default
 title: PGS Association Tests
 ---
 
-<a href="{{ '/' | relative_url }}" class="btn">← Back to Home</a>
+[← Back to Home]({{ '/' | relative_url }})
 
 # PGS Association Tests
 
