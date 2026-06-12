@@ -246,19 +246,4 @@ dfALL  <- rbind(dftmp2, dftmp3)
 
 Decreasing $L$ raises the physical distance between adjacent sites (reducing $\rho$) but also raises the noise floor $1/L$. As expected for a weak signal, reducing $L$ eventually dissolves the signal in the most homogeneous panels — confirming that the estimates there sit near the detection limit rather than reflecting strong residual structure.
 
----
 
-## Scripts to copy into the website repo
-
-To make the script links on this page resolve, copy the following files from the [original code repository](https://github.com/jgblanc/strat2) into the website repo, preserving the subfolder layout:
-
-| Copy from `strat2` | To website repo |
-|--------------------|-----------------|
-| `code/blocks/add_block_info.R` | `scripts/blocks/add_block_info.R` |
-| `code/calculate_H/calc_rVar.R` | `scripts/calculate_H/calc_rVar.R` |
-| `code/calculate_H/calc_H.R` | `scripts/calculate_H/calc_H.R` |
-| `code/calculate_H/vp_BJ.R` | `scripts/calculate_H/vp_BJ.R` |
-| `code/calculate_FGr/calc_Gr.R` | `scripts/calculate_FGr/calc_Gr.R` |
-| `code/calculate_FGr/calc_fhat.R` | `scripts/calculate_FGr/calc_fhat.R` |
-
-> **Note on Snakemake rule names.** In `snakefile_main2`, the `calc_FGr_blocks` rule calls `calc_FGr.R` and the `calc_FGr` rule calls `calc_fhat_sd.R`, but the current repository ships these as `calc_Gr.R` and `calc_fhat.R`. The rule snippets above have been updated to point at the shipped filenames — adjust the rule text (or rename the scripts) when you wire this into the live pipeline so the names match.
