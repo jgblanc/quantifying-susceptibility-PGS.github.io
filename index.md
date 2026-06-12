@@ -10,6 +10,8 @@ Department of Human Genetics, University of Chicago
 
 [📄 Read the Preprint](https://www.biorxiv.org/content/10.64898/2025.12.04.692430v1) | [💻 View the Original Code](https://github.com/jgblanc/strat2)
 
+This website was created with the aid of Claude Opus 4.8 (Anthropic).
+
 ---
 
 ## Overview
