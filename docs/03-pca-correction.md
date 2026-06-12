@@ -14,16 +14,7 @@ This page documents how we compute the principal components used for correction.
 - **Common variant PCs** — computed from the LD-pruned, high-quality common SNP set, capturing broad/deep population structure.
 - **Rare variant PCs** — computed from LD-pruned variants with $\text{MAF} < 0.01$, capturing finer-scale, more recent structure that common variants miss.
 
-These PCs feed directly into the estimation of [residual susceptibility $H'$ and PCA efficacy $V_K$](04-residual-susceptibility) and into the [GWAS](05-gwas) as covariates.
-
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: the PC biplot of the six GWAS panels (paper Fig. 2a), which
-motivates why broad vs. fine structure require different PC sets.
-Export the figure to assets/images/ and fill in the filename + caption.
-
-![PC biplots of the six UK Biobank GWAS panels](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
+These PCs feed directly into the estimation of [residual susceptibility H' and PCA efficacy](04-residual-susceptibility) and into the [GWAS](05-gwas) as covariates.
 
 ---
 
@@ -128,16 +119,6 @@ rule calc_PCA_rare:
         --out {params.out_prefix}
         """
 ```
-
-<!-- ============================================================
-FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
-Suggested: a panel illustrating common vs. rare variant PC structure,
-if one exists in the manuscript/supplement for this section.
-Export to assets/images/ and fill in the filename + caption.
-
-![Common vs. rare variant principal components](../assets/images/FIGURE_FILENAME.png)
-============================================================ -->
-
 ---
 
 ## Even/odd chromosome PCs (for cross-validation)
