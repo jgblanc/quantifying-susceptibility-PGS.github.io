@@ -3,7 +3,7 @@ layout: default
 title: PCA Correction
 ---
 
-[← Back to Home]({{ '/' | relative_url }})
+<a href="{{ '/' | relative_url }}" class="btn">← Back to Home</a>
 
 # PCA Correction
 
@@ -14,7 +14,16 @@ This page documents how we compute the principal components used for correction.
 - **Common variant PCs** — computed from the LD-pruned, high-quality common SNP set, capturing broad/deep population structure.
 - **Rare variant PCs** — computed from LD-pruned variants with $\text{MAF} < 0.01$, capturing finer-scale, more recent structure that common variants miss.
 
-These PCs feed directly into the estimation of [residual susceptibility H' and PCA efficacy](04-residual-susceptibility) and into the [GWAS](05-gwas) as covariates.
+These PCs feed directly into the estimation of [residual susceptibility $H'$ and PCA efficacy $V_K$](04-residual-susceptibility) and into the [GWAS](05-gwas) as covariates.
+
+<!-- ============================================================
+FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
+Suggested: the PC biplot of the six GWAS panels (paper Fig. 2a), which
+motivates why broad vs. fine structure require different PC sets.
+Export the figure to assets/images/ and fill in the filename + caption.
+
+![PC biplots of the six UK Biobank GWAS panels](../assets/images/FIGURE_FILENAME.png)
+============================================================ -->
 
 ---
 
@@ -97,28 +106,19 @@ rule concat_chr:
         """
 ```
 
-Finally, we subsample to 1,000,000 variants (`--thin-count`) and extract the top 40 rare-variant PCs:
+The rare-variant PCs are then extracted from this merged file (subsampling to 1,000,000 variants with `--thin-count`, top 40 PCs). In `snakefile_main`, the rare-variant PCs are computed directly as the **half-genome (odd/even) splits** used for cross-validation — there is no separate full-genome rare PCA rule — so the actual rare PCA rules are shown in the [even/odd section below](#evenodd-chromosome-pcs-for-cross-validation).
 
-```
-rule calc_PCA_rare:
-    input:
-        IDs="data/ids/gwas_ids/{gwas}.txt"
-    output:
-        "output/calculate_PCA/{gwas}/rarePCA.eigenvec",
-        "output/calculate_PCA/{gwas}/rarePCA.eigenval"
-    params:
-        plink_prefix=".../RareVariants/{gwas}/pcSNPs_ALL",
-        out_prefix="output/calculate_PCA/{gwas}/rarePCA"
-    shell:
-        """
-        plink2 --pfile {params.plink_prefix} \
-        --keep {input.IDs} \
-        --thin-count 1000000 \
-        --pca 40 approx \
-        --memory 400000 \
-        --out {params.out_prefix}
-        """
-```
+> **Note.** The two rules above (`extract_rare_variants`, `concat_chr`) are part of the data-preparation pipeline in **`snakefile_UKBB`**, not `snakefile_main` — analogous to how the contrast-construction rules on page 01 live in the panel-specific snakefiles.
+
+<!-- ============================================================
+FIGURE PLACEHOLDER — could not be retrieved from Overleaf (login-gated).
+Suggested: a panel illustrating common vs. rare variant PC structure,
+if one exists in the manuscript/supplement for this section.
+Export to assets/images/ and fill in the filename + caption.
+
+![Common vs. rare variant principal components](../assets/images/FIGURE_FILENAME.png)
+============================================================ -->
+
 ---
 
 ## Even/odd chromosome PCs (for cross-validation)
@@ -147,5 +147,6 @@ rule calc_odd_PCA:
 
 The `calc_even_PCA`, `calc_odd_PCA_rare`, and `calc_even_PCA_rare` rules are identical except for the chromosome list (`--chr 2,4,...,22`) and, for the rare-variant versions, the rare-variant plink prefix plus `--thin-count 1000000`.
 
-As a further diagnostic, we also estimate PCs from *cumulative* chromosome subsets (chromosome 1, then 1–2, then 1–3, …) to see how quickly captured variance saturates with genomic breadth. This is handled by [`calc_PCA_chr.R`](https://github.com/jgblanc/quantifying-susceptibility-PGS.github.io/blob/master/scripts/calculate_PCA/calc_PCA_chr.R), which loops plink2 over growing chromosome ranges.
+As a further diagnostic, we also estimate PCs from *cumulative* chromosome subsets (chromosome 1, then 1–2, then 1–3, …) to see how quickly captured variance saturates with genomic breadth. In `snakefile_main` this is the `calc_chr_PCA` rule, which calls plink2 directly over a growing `--chr` range (`1`, `1-2`, `1-3`, …); the captured variance is then evaluated by the `calc_R2_chr` rule.
 
+---
