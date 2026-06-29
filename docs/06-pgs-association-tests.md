@@ -185,6 +185,8 @@ rule resample_snps_for_q:
 The resampled SNP set is then run through the same `run_test_jacknife.R` (rule `pga_test_resample`) and concatenated into `plots/pga_test_resampled/{dataset}/{gwas}/q_results.txt`. Comparing the standard and resampled results shows how much of the bias is driven by ascertainment versus estimation.
 
 
+## Significant Polygenic Score-ancestry Associations 
+
 ![Significant polygenic score-ancestry associations](../assets/images/SigFig.png)
 
 Significant polygenic score-ancestry associations
