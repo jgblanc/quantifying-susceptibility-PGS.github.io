@@ -152,9 +152,6 @@ q    <- calc_q(df) / sqrt(sigma2)   # standardized q-hat
 
 Results are concatenated across all configurations into `plots/pga_test/{dataset}/{gwas}/q_results.txt` via `concat_q.R`.
 
-![Standardized PGS test statistics versus susceptibility](../assets/images/ConfoundingFig.png)
-Standardized PGS test statistics versus susceptibility
-
 ---
 
 ## Step 4: Decoupling ascertainment from estimation
@@ -183,6 +180,9 @@ rule resample_snps_for_q:
 ```
 
 The resampled SNP set is then run through the same `run_test_jacknife.R` (rule `pga_test_resample`) and concatenated into `plots/pga_test_resampled/{dataset}/{gwas}/q_results.txt`. Comparing the standard and resampled results shows how much of the bias is driven by ascertainment versus estimation.
+
+![Standardized PGS test statistics versus susceptibility](../assets/images/ConfoundingFig.png)
+Standardized PGS test statistics versus susceptibility
 
 
 ## Significant Polygenic Score-ancestry Associations 
